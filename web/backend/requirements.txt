@@ -1,0 +1,26 @@
+fastapi>=0.136.3,<0.137    # trae starlette >=0.49.1 (CVE-2025-54121, CVE-2025-62727). Upper bound: FastAPI 0.137 introdujo `_IncludedRouter` que rompe prometheus-fastapi-instrumentator<8 (route.path attribute error).
+uvicorn[standard]==0.48.0
+psycopg2-binary==2.9.12
+pydantic==2.13.4
+pydantic-settings==2.14.1
+python-jose[cryptography]>=3.5.0  # PYSEC-2024-232, PYSEC-2024-233 (algoritmo confusión + DoS)
+bcrypt==4.2.1
+python-multipart>=0.0.29   # CVE-2026-24486
+python-dotenv==1.2.2
+openpyxl>=3.1.0
+httpx>=0.27.0
+anthropic>=0.40.0
+google-auth>=2.29.0
+google-api-python-client>=2.130.0
+slowapi>=0.1.9             # rate limiting para endpoints de auth (anti brute force)
+qrcode[pil]>=8.2         # generacion de QR para formularios publicos de captura de leads
+firebase-admin>=6.5.0      # FCM push notifications (instant delivery)
+cryptography>=48.0.0       # Fernet para cifrado de tokens WABA en DB (V034 multi-WABA)
+sentry-sdk[fastapi]>=2.60.0 # error tracking (V070.66) — opcional: solo se activa si SENTRY_DSN está seteado
+prometheus-fastapi-instrumentator>=7.0.0  # SLI metrics auto-instrumentation (V070.72) — expone /metrics
+# v4.2.0 - security bumps (jose, multipart, starlette via fastapi) + slowapi 2026-04-07
+# v4.3.0 - add public forms feature (qrcode[pil]) 2026-04-11
+# v4.4.0 - add FCM push notifications 2026-04-12
+# v4.5.0 - multi-WABA con credenciales cifradas en DB (V034) 2026-04-18
+# v4.6.0 - Sentry error tracking opcional (V070.66) 2026-05-15
+# v4.7.0 - Prometheus metrics + SLOs formales (V070.72) 2026-05-16

@@ -1,0 +1,31 @@
+{
+  "name": "Palma del Río — CRM",
+  "short_name": "Palma CRM",
+  "description": "Plataforma de gestión de leads para Palma del Río",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1e40af",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity", "education"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nuevo Lead",
+      "url": "/leads/nuevo",
+      "description": "Crear un nuevo lead"
+    },
+    {
+      "name": "Dashboard",
+      "url": "/dashboard",
+      "description": "Ver el dashboard de KPIs"
+    }
+  ]
+}

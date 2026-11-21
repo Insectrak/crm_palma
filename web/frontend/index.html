@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es" style="overflow-x:hidden">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1E40AF" />
+    <meta name="description" content="Palma del Río — Plataforma CRM para gestión de leads" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Palma CRM" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>Palma del Río — CRM</title>
+  </head>
+  <body style="overflow-x:hidden">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <!-- SW REMOVIDO (2026-06-15) — el SW estaba causando bugs persistentes de
+         cache stale (bundles viejos servidos despues de deploys). Solucion:
+         registramos /sw.js que se autodesregistra al instalarse y borra todas
+         las caches del browser. Despues de eso, browser pega directo al server
+         sin SW (zero PWA, zero cache stale).
+         Este script tambien fuerza el unregister manual por si /sw.js no se
+         carga por alguna razon. -->
+    <script>
+      (function() {
+        if (!('serviceWorker' in navigator)) return
+        // 1. Registrar el sw.js (que se autodesregistra al instalar)
+        navigator.serviceWorker.register('/sw.js').catch(() => {})
+        // 2. Fallback adicional: en cada load, unregister forzoso de cualquier SW
+        //    existente + borrado de caches. Garantiza que aunque /sw.js falle,
+        //    el cliente quede limpio.
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          regs.forEach((r) => r.unregister().catch(() => {}))
+        }).catch(() => {})
+        if ('caches' in window) {
+          caches.keys().then((keys) => keys.forEach((k) => caches.delete(k).catch(() => {}))).catch(() => {})
+        }
+      })()
+    </script>
+  </body>
+</html>

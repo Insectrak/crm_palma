@@ -1,0 +1,51 @@
+# Config del script off-site SCP (multi-tenant).
+# Copiar a /opt/backups/scp-offsite.conf y editar los valores del cliente.
+#
+# Uso desde el script:
+#   SCP_OFFSITE_CONFIG=/opt/backups/scp-offsite.conf scp-offsite.sh
+# O dejarlo en la ruta por defecto: /opt/backups/scp-offsite.conf
+
+# ─── OBLIGATORIAS ────────────────────────────────────────────────────────
+
+# Slug del tenant (snake_case). Se usa para nombrar logs y multi-tenant
+# en mismo host.
+TENANT_SLUG="palma_rio"
+
+# Directorio del host donde EasyPanel monta el volumen de backups de n8n.
+# Comando para encontrarlo:
+#   find / -path '*n8n*' -name 'tenant' -type d 2>/dev/null
+VOLUME="/etc/easypanel/projects/brighton/n8n/volumes/n8n_crm_backups/postgres/tenant"
+
+# Usuario SSH del server destino (cliente).
+# - Si es Administrador: la public key DEBE ir en
+#   C:\ProgramData\ssh\administrators_authorized_keys
+# - Si es usuario normal: va en C:\Users\<user>\.ssh\authorized_keys
+DEST_USER="Administrador"
+
+# IP Tailscale del server destino (verla en login.tailscale.com/admin/machines).
+DEST_HOST="100.87.119.54"
+
+# Path destino en el server Windows del cliente.
+# IMPORTANTE: usar FORWARD slashes y empezar con "/" (sintaxis OpenSSH-Windows).
+#   Correcto:    /L:/Backups/Postgres/
+#   Incorrecto:  L:\Backups\Postgres\
+DEST_PATH="/L:/Backups/Postgres/"
+
+# Path absoluto a la private key SSH en el host.
+KEY_PATH="/opt/backups/keys/palma_ssh"
+
+# ─── OPCIONALES (con defaults) ───────────────────────────────────────────
+
+# Directorio donde se guardan los logs (un archivo por dia + tenant).
+# LOG_DIR="/opt/backups/logs"
+
+# Tamaño minimo en bytes que se considera un backup valido.
+# Si el .sql.gz pesa menos, el script lo trata como falla (pg_dump
+# probablemente fallo silencioso). Default 100 KB.
+# MIN_SIZE_BYTES="100000"
+
+# Dias de retencion de logs. Los logs viejos se borran automaticamente.
+# LOG_RETENTION_DAYS="30"
+
+# Timeout de conexion SSH al destino (segundos).
+# SSH_TIMEOUT="30"

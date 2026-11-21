@@ -1,0 +1,17 @@
+# Ignorar dependencias locales y archivos temporales para el build context de Docker
+**/node_modules
+**/dist
+**/.git
+**/.gitignore
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache
+**/.coverage
+**/.env
+**/.env.local
+**/.vscode
+**/.idea
+
+_palma_legacy

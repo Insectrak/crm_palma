@@ -1,0 +1,16 @@
+line-length = 120
+target-version = "py311"
+
+[lint]
+# Conservador: solo bugs reales (pyflakes F) y errores de sintaxis graves (E9).
+# No se activan reglas de estilo (I, UP, B, SIM) para no bloquear el CI con
+# ruido en código legacy. Se pueden endurecer gradualmente.
+select = ["F", "E9"]
+ignore = [
+    "F401",  # imports no usados — hay imports diferidos en routers
+    "F811",  # redefinición — común en código con overrides
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["F401", "F811"]
+"app/main.py" = ["E402"]

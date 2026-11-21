@@ -1,0 +1,38 @@
+# docker-compose.dev.yml — DESARROLLO CRM Palma del Rio (hot reload)
+# Uso: docker compose -f docker-compose.dev.yml up --build
+
+services:
+  crm-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: crm-backend-dev
+    ports:
+      - "8022:8002"
+    env_file:
+      - ./backend/.env.dev
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8002 --reload
+    volumes:
+      - ./backend:/app       # hot reload
+    restart: unless-stopped
+    networks:
+      - crm-dev-net
+
+  crm-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /
+    container_name: crm-frontend-dev
+    ports:
+      - "3022:80"
+    depends_on:
+      - crm-backend
+    restart: unless-stopped
+    networks:
+      - crm-dev-net
+
+networks:
+  crm-dev-net:
+    driver: bridge

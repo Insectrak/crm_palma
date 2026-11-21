@@ -1,0 +1,289 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+html, body {
+  overflow: hidden;
+  scrollbar-width: none; /* Firefox */
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none; /* Chrome / Safari */
+}
+
+/* Variables CSS para shadcn/ui y Theming */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+    --primary: 243 75% 59%;           /* indigo-600 #4F46E5 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 9% 46%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 243 100% 97%;           /* indigo-50 */
+    --accent-foreground: 243 75% 40%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 243 75% 59%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222 47% 7%;         /* #090d16 */
+    --foreground: 210 40% 98%;        /* #f8fafc */
+    --card: 222 44% 13%;              /* #121a29 */
+    --card-foreground: 210 40% 98%;
+    --popover: 222 44% 13%;           /* #121a29 */
+    --popover-foreground: 210 40% 98%;
+    --primary: 243 75% 59%;           /* indigo-600 #4F46E5 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 17%;         /* #1e293b */
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;  /* #94a3b8 */
+    --accent: 217 33% 20%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 20%;            /* #253046 */
+    --input: 217 33% 20%;
+    --ring: 243 75% 59%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    margin: 0;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100vh;
+  }
+}
+
+/* Reglas automáticas para modo oscuro en componentes con clases utilitarias directas */
+.dark body {
+  background-color: #090d16;
+  color: #f8fafc;
+}
+
+.dark .bg-slate-50,
+.dark .bg-gray-50 {
+  background-color: #090d16 !important;
+}
+
+.dark .bg-white {
+  background-color: #121a29 !important;
+}
+
+.dark .bg-white\/95 {
+  background-color: rgba(9, 13, 22, 0.95) !important;
+}
+
+.dark .to-white {
+  --tw-gradient-to: #121a29 var(--tw-gradient-to-position) !important;
+}
+
+.dark .bg-gray-100,
+.dark .bg-slate-100 {
+  background-color: #1a2436 !important;
+}
+
+.dark .bg-gray-200,
+.dark .bg-slate-200 {
+  background-color: #26334d !important;
+}
+
+/* Adaptación de fondos pasteles en modo oscuro */
+.dark .bg-indigo-50, .dark .from-indigo-50 { background-color: rgba(99, 102, 241, 0.12) !important; --tw-gradient-from: rgba(99, 102, 241, 0.18) var(--tw-gradient-from-position) !important; }
+.dark .bg-emerald-50, .dark .from-emerald-50 { background-color: rgba(16, 185, 129, 0.12) !important; --tw-gradient-from: rgba(16, 185, 129, 0.18) var(--tw-gradient-from-position) !important; }
+.dark .bg-amber-50, .dark .from-amber-50 { background-color: rgba(245, 158, 11, 0.12) !important; --tw-gradient-from: rgba(245, 158, 11, 0.18) var(--tw-gradient-from-position) !important; }
+.dark .bg-purple-50, .dark .from-purple-50 { background-color: rgba(168, 85, 247, 0.12) !important; --tw-gradient-from: rgba(168, 85, 247, 0.18) var(--tw-gradient-from-position) !important; }
+.dark .bg-pink-50, .dark .from-pink-50 { background-color: rgba(236, 72, 153, 0.12) !important; --tw-gradient-from: rgba(236, 72, 153, 0.18) var(--tw-gradient-from-position) !important; }
+.dark .bg-sky-50, .dark .from-sky-50 { background-color: rgba(14, 165, 233, 0.12) !important; --tw-gradient-from: rgba(14, 165, 233, 0.18) var(--tw-gradient-from-position) !important; }
+.dark .bg-red-50, .dark .from-red-50 { background-color: rgba(239, 68, 68, 0.14) !important; --tw-gradient-from: rgba(239, 68, 68, 0.2) var(--tw-gradient-from-position) !important; }
+.dark .bg-rose-50, .dark .from-rose-50 { background-color: rgba(244, 63, 94, 0.12) !important; --tw-gradient-from: rgba(244, 63, 94, 0.18) var(--tw-gradient-from-position) !important; }
+.dark .bg-orange-50, .dark .from-orange-50 { background-color: rgba(249, 115, 22, 0.12) !important; --tw-gradient-from: rgba(249, 115, 22, 0.18) var(--tw-gradient-from-position) !important; }
+
+.dark .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.25) !important; }
+.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.25) !important; }
+.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.25) !important; }
+.dark .bg-purple-100 { background-color: rgba(168, 85, 247, 0.25) !important; }
+.dark .bg-pink-100 { background-color: rgba(236, 72, 153, 0.25) !important; }
+.dark .bg-sky-100 { background-color: rgba(14, 165, 233, 0.25) !important; }
+.dark .bg-red-100 { background-color: rgba(239, 68, 68, 0.28) !important; }
+.dark .bg-rose-100 { background-color: rgba(244, 63, 94, 0.25) !important; }
+
+/* Textos de alta legibilidad en modo oscuro */
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: #f8fafc !important;
+}
+
+.dark .text-gray-700,
+.dark .text-gray-600,
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-gray-500,
+.dark .text-gray-400,
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-indigo-600, .dark .text-indigo-700 { color: #818cf8 !important; }
+.dark .text-emerald-600, .dark .text-emerald-700 { color: #34d399 !important; }
+.dark .text-amber-600, .dark .text-amber-700, .dark .text-amber-800, .dark .text-amber-900, .dark .text-amber-950 { color: #fbbf24 !important; }
+.dark .text-purple-600, .dark .text-purple-700 { color: #c084fc !important; }
+.dark .text-pink-600, .dark .text-pink-700 { color: #f472b6 !important; }
+.dark .text-sky-600, .dark .text-sky-700 { color: #38bdf8 !important; }
+.dark .text-red-600, .dark .text-red-700, .dark .text-red-800 { color: #f87171 !important; }
+.dark .text-rose-600, .dark .text-rose-700 { color: #fb7185 !important; }
+
+/* Bordes en modo oscuro */
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-slate-100,
+.dark .border-slate-200 {
+  border-color: #202b3e !important;
+}
+
+.dark .border-indigo-100, .dark .border-indigo-200 { border-color: rgba(99, 102, 241, 0.25) !important; }
+.dark .border-emerald-100, .dark .border-emerald-200 { border-color: rgba(16, 185, 129, 0.25) !important; }
+.dark .border-amber-100, .dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.25) !important; }
+.dark .border-purple-100, .dark .border-purple-200 { border-color: rgba(168, 85, 247, 0.25) !important; }
+.dark .border-pink-100, .dark .border-pink-200 { border-color: rgba(236, 72, 153, 0.25) !important; }
+.dark .border-sky-100, .dark .border-sky-200 { border-color: rgba(14, 165, 233, 0.25) !important; }
+.dark .border-red-100, .dark .border-red-200 { border-color: rgba(239, 68, 68, 0.3) !important; }
+.dark .border-rose-100, .dark .border-rose-200 { border-color: rgba(244, 63, 94, 0.25) !important; }
+
+.dark .divide-gray-100,
+.dark .divide-gray-200,
+.dark .divide-slate-100,
+.dark .divide-slate-200 {
+  border-color: #202b3e !important;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  background-color: #0f1624 !important;
+  color: #f8fafc !important;
+  border-color: #2a374f !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: var(--brand-primary, #4f46e5) !important;
+}
+
+.dark thead {
+  background-color: #0b101b !important;
+}
+
+.dark thead th {
+  color: #94a3b8 !important;
+  border-color: #202b3e !important;
+}
+
+.dark tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+/*
+ * Celdas con información sensible (PII — Personally Identifiable Information).
+ */
+.pii-cell {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Oculta el scrollbar manteniendo la capacidad de scroll horizontal. */
+.no-scrollbar {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE / Edge legacy */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;                /* Chrome / Safari / Opera / Edge moderno */
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent;
+}
+.no-scrollbar::-webkit-scrollbar-thumb,
+.no-scrollbar::-webkit-scrollbar-track {
+  display: none;
+  background: transparent;
+}
+
+/* Scrollbar estilo WhatsApp Web */
+.wa-scrollbar {
+  scrollbar-width: thin;                              /* Firefox */
+  scrollbar-color: transparent transparent;           /* Firefox: oculto en idle */
+}
+.wa-scrollbar:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;    /* Firefox: visible en hover */
+}
+.dark .wa-scrollbar:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+.wa-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.wa-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.wa-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+.wa-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+.dark .wa-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+.wa-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.35);
+}
+.dark .wa-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Barra de progreso indeterminada para refetch en tablas */
+@keyframes refreshSlide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
