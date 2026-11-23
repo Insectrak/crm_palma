@@ -18,6 +18,7 @@ import {
   Layers,
   Calendar,
   ArrowRightLeft,
+  TrendingUp,
   X,
 } from 'lucide-react'
 import {
@@ -32,6 +33,7 @@ import {
 } from 'recharts'
 import api from '@/lib/api'
 import SeguimientoCitasTab from '@/components/dashboard/SeguimientoCitasTab'
+import EvolucionCitasTab from '@/components/dashboard/EvolucionCitasTab'
 
 // Helper para formato de minutos/segundos
 function formatSegundos(seg) {
@@ -100,8 +102,9 @@ export default function DashboardSupervisionControl() {
   }, [customOpen])
 
   // Datos
-  const [activeTab, setActiveTab] = useState('control') // 'control' | 'seguimiento_citas'
+  const [activeTab, setActiveTab] = useState('control') // 'control' | 'seguimiento_citas' | 'evolucion_citas'
   const [citasTabCount, setCitasTabCount] = useState(null)
+  const [evolucionTabCount, setEvolucionTabCount] = useState(null)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -520,6 +523,30 @@ export default function DashboardSupervisionControl() {
             </span>
           )}
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('evolucion_citas')}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'evolucion_citas'
+              ? 'bg-purple-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <TrendingUp size={15} />
+          <span>Evolución de Citas (Cohortes)</span>
+          {evolucionTabCount !== null && (
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                activeTab === 'evolucion_citas'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
+              }`}
+            >
+              {evolucionTabCount} recup.
+            </span>
+          )}
+        </button>
       </div>
 
       {activeTab === 'seguimiento_citas' ? (
@@ -532,6 +559,17 @@ export default function DashboardSupervisionControl() {
           asesorId={asesorId}
           refreshTick={refreshTick}
           onCountChange={setCitasTabCount}
+        />
+      ) : activeTab === 'evolucion_citas' ? (
+        <EvolucionCitasTab
+          periodo={periodo}
+          fechaInicio={fechaInicio}
+          fechaFin={fechaFin}
+          sedeId={sedeId}
+          supervisorId={supervisorId}
+          asesorId={asesorId}
+          refreshTick={refreshTick}
+          onCountChange={setEvolucionTabCount}
         />
       ) : (
         <>

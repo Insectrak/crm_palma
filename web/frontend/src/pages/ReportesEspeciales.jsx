@@ -541,7 +541,7 @@ export default function ReportesEspeciales() {
         {/* Card 5: Matriculados / Ventas */}
         <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm relative overflow-hidden col-span-2 sm:col-span-1 hover:border-emerald-400 transition-all">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Matriculados</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Ventas / Cierres</span>
             <span className="p-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-xl">
               <Trophy size={18} />
             </span>
@@ -757,7 +757,7 @@ export default function ReportesEspeciales() {
                   <th className="py-3 px-4 text-center">En Bolsa TMK</th>
                   <th className="py-3 px-4 text-center">Reasignados Fuera</th>
                   <th className="py-3 px-4 text-center">En Cola</th>
-                  <th className="py-3 px-4 text-center">Matriculados</th>
+                  <th className="py-3 px-4 text-center">Ventas / Cierres</th>
                   <th className="py-3 px-4 text-right rounded-r-xl">Acción</th>
                 </tr>
               </thead>

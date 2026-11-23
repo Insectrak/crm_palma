@@ -106,7 +106,7 @@ _LIST_COLUMNS = """
         CASE
             WHEN l.supervisor_id IS NOT NULL
                  AND (
-                     l.estado_id IN (SELECT id FROM crm.estados_lead WHERE nombre ILIKE '%%matr%%' OR nombre ILIKE '%%ganad%%' OR nombre ILIKE '%%cierr%%')
+                     l.estado_id IN (SELECT id FROM crm.estados_lead WHERE nombre ILIKE '%%matr%%' OR nombre ILIKE '%%ganad%%' OR nombre ILIKE '%%cierr%%' OR nombre ILIKE '%%reserv%%' OR nombre ILIKE '%%separac%%' OR nombre ILIKE '%%venta concretad%%')
                      OR l.tipo_cierre IS NOT NULL
                  )
                  AND NOT EXISTS (

@@ -245,15 +245,16 @@ def get_resumen_jefatura(
                 leads_date_filter_sql = "TRUE"
                 date_params = []
 
-            # Condición de seguimientos según período
+            # Condición de seguimientos según período (incluye En negociacion / Visita a Proyecto de Palma)
+            _seg_state_sql = "(estado_nombre ILIKE '%%seguim%%' OR TRANSLATE(LOWER(TRIM(estado_nombre)), 'áéíóúüñ', 'aeiouun') IN ('en negociacion', 'visita a proyecto'))"
             if periodo == "dia":
-                seg_condition_sql = "fecha_proxima_gestion::date = CURRENT_DATE OR (fecha_proxima_gestion IS NULL AND estado_nombre ILIKE '%%seguim%%')"
+                seg_condition_sql = f"fecha_proxima_gestion::date = CURRENT_DATE OR (fecha_proxima_gestion IS NULL AND {_seg_state_sql})"
                 seg_params = []
             elif start_dt and end_dt:
-                seg_condition_sql = "(fecha_proxima_gestion >= %s AND fecha_proxima_gestion <= %s) OR (fecha_proxima_gestion IS NULL AND estado_nombre ILIKE '%%seguim%%' AND en_periodo = TRUE)"
+                seg_condition_sql = f"(fecha_proxima_gestion >= %s AND fecha_proxima_gestion <= %s) OR (fecha_proxima_gestion IS NULL AND {_seg_state_sql} AND en_periodo = TRUE)"
                 seg_params = [start_dt, end_dt]
             else:
-                seg_condition_sql = "fecha_proxima_gestion IS NOT NULL OR estado_nombre ILIKE '%%seguim%%'"
+                seg_condition_sql = f"fecha_proxima_gestion IS NOT NULL OR {_seg_state_sql}"
                 seg_params = []
 
             # Condición de citas según período
@@ -337,26 +338,28 @@ def get_resumen_jefatura(
                 ) AS seguimientos_hoy,
                 COUNT(*) FILTER (
                     WHERE fecha_proxima_gestion::date < CURRENT_DATE
-                      AND estado_nombre ILIKE '%%seguim%%'
+                      AND {_seg_state_sql}
                 ) AS seguimientos_vencidos,
 
-                -- COD / Compromisos de Operación en el período
+                -- COD / Compromisos de Operación / Reservas en el período
                 COUNT(*) FILTER (
                     WHERE en_periodo = TRUE
                       AND (
                           estado_nombre ILIKE '%%COD%%'
                        OR estado_nombre ILIKE '%%Compromiso%%'
                        OR estado_nombre ILIKE '%%Reserva%%'
+                       OR estado_nombre ILIKE '%%Separac%%'
                       )
                 ) AS cod_total,
 
-                -- Matrículas / Ganados en el período
+                -- Ventas / Ganados en el período
                 COUNT(*) FILTER (
                     WHERE en_periodo = TRUE
                       AND (
                           estado_nombre ILIKE '%%Matr%%'
                        OR estado_nombre ILIKE '%%Ganad%%'
                        OR estado_nombre ILIKE '%%Cierr%%'
+                       OR estado_nombre ILIKE '%%Venta Concretad%%'
                       )
                 ) AS matriculas_total,
                 COUNT(*) FILTER (
@@ -365,6 +368,7 @@ def get_resumen_jefatura(
                           estado_nombre ILIKE '%%Matr%%'
                        OR estado_nombre ILIKE '%%Ganad%%'
                        OR estado_nombre ILIKE '%%Cierr%%'
+                       OR estado_nombre ILIKE '%%Venta Concretad%%'
                       )
                       AND (
                           (segunda_voz IS NOT NULL AND TRIM(segunda_voz) != '')
@@ -379,6 +383,7 @@ def get_resumen_jefatura(
                     WHERE en_periodo = TRUE
                       AND (
                           estado_nombre ILIKE '%%Perdid%%'
+                       OR estado_nombre ILIKE '%%Desist%%'
                        OR estado_nombre ILIKE '%%No inter%%'
                        OR estado_nombre ILIKE '%%Descart%%'
                       )
@@ -389,9 +394,13 @@ def get_resumen_jefatura(
                     WHERE estado_nombre NOT ILIKE '%%Matr%%'
                       AND estado_nombre NOT ILIKE '%%Ganad%%'
                       AND estado_nombre NOT ILIKE '%%Cierr%%'
+                      AND estado_nombre NOT ILIKE '%%Venta Concretad%%'
                       AND estado_nombre NOT ILIKE '%%Perdid%%'
+                      AND estado_nombre NOT ILIKE '%%Desist%%'
                       AND estado_nombre NOT ILIKE '%%No inter%%'
                       AND estado_nombre NOT ILIKE '%%Descart%%'
+                      AND estado_nombre NOT ILIKE '%%Bolsa%%'
+                      AND estado_nombre NOT ILIKE '%%Reciclaje%%'
                       AND COALESCE(fecha_ultimo_contacto, created_at) < NOW() - INTERVAL '30 days'
                 ) AS estancados_30d
             FROM base_leads;
@@ -410,7 +419,7 @@ def get_resumen_jefatura(
             LEFT JOIN crm.equipos eq ON eq.asesor_id = l.asesor_id AND eq.activo = TRUE
             WHERE {where_sql}
               AND {leads_date_filter_sql}
-              AND (e.nombre ILIKE '%%Perdid%%' OR e.nombre ILIKE '%%No inter%%' OR e.nombre ILIKE '%%Descart%%')
+              AND (e.nombre ILIKE '%%Perdid%%' OR e.nombre ILIKE '%%Desist%%' OR e.nombre ILIKE '%%No inter%%' OR e.nombre ILIKE '%%Descart%%')
             GROUP BY 1
             ORDER BY total DESC
             LIMIT 8;
@@ -444,14 +453,15 @@ def get_resumen_jefatura(
                 cur.execute("ROLLBACK TO SAVEPOINT sp_citas_jefatura")
 
             # ── 4. Desglose por Asesor Individual (TODOS los asesores activos) ──
+            _e_seg_sql = "(e.nombre ILIKE '%%seguim%%' OR TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') IN ('en negociacion', 'visita a proyecto'))"
             if periodo == "dia":
-                asesor_seg_filter_sql = "l.fecha_proxima_gestion::date = CURRENT_DATE OR (l.fecha_proxima_gestion IS NULL AND e.nombre ILIKE '%%seguim%%')"
+                asesor_seg_filter_sql = f"l.fecha_proxima_gestion::date = CURRENT_DATE OR (l.fecha_proxima_gestion IS NULL AND {_e_seg_sql})"
                 asesor_seg_params = []
             elif start_dt and end_dt:
-                asesor_seg_filter_sql = "(l.fecha_proxima_gestion >= %s AND l.fecha_proxima_gestion <= %s) OR (l.fecha_proxima_gestion IS NULL AND e.nombre ILIKE '%%seguim%%' AND l.created_at >= %s AND l.created_at <= %s)"
+                asesor_seg_filter_sql = f"(l.fecha_proxima_gestion >= %s AND l.fecha_proxima_gestion <= %s) OR (l.fecha_proxima_gestion IS NULL AND {_e_seg_sql} AND l.created_at >= %s AND l.created_at <= %s)"
                 asesor_seg_params = [start_dt, end_dt, start_dt, end_dt]
             else:
-                asesor_seg_filter_sql = "l.fecha_proxima_gestion IS NOT NULL OR e.nombre ILIKE '%%seguim%%'"
+                asesor_seg_filter_sql = f"l.fecha_proxima_gestion IS NOT NULL OR {_e_seg_sql}"
                 asesor_seg_params = []
 
             sql_asesores = f"""
@@ -476,15 +486,15 @@ def get_resumen_jefatura(
                 ) AS seguimientos_hoy,
                 COUNT(l.id) FILTER (
                     WHERE l.fecha_proxima_gestion::date < CURRENT_DATE
-                      AND e.nombre ILIKE '%%seguim%%'
+                      AND {_e_seg_sql}
                 ) AS seguimientos_vencidos,
                 COUNT(l.id) FILTER (
                     WHERE {leads_date_filter_sql}
-                      AND (e.nombre ILIKE '%%Matr%%' OR e.nombre ILIKE '%%Ganad%%' OR e.nombre ILIKE '%%Cierr%%')
+                      AND (e.nombre ILIKE '%%Matr%%' OR e.nombre ILIKE '%%Ganad%%' OR e.nombre ILIKE '%%Cierr%%' OR e.nombre ILIKE '%%Venta Concretad%%')
                 ) AS matriculas,
                 COUNT(l.id) FILTER (
                     WHERE {leads_date_filter_sql}
-                      AND (e.nombre ILIKE '%%Perdid%%' OR e.nombre ILIKE '%%No inter%%' OR e.nombre ILIKE '%%Descart%%')
+                      AND (e.nombre ILIKE '%%Perdid%%' OR e.nombre ILIKE '%%Desist%%' OR e.nombre ILIKE '%%No inter%%' OR e.nombre ILIKE '%%Descart%%')
                 ) AS perdidos
             FROM auth.users u
             LEFT JOIN crm.leads l ON l.asesor_id = u.id AND l.activo = TRUE
@@ -510,7 +520,7 @@ def get_resumen_jefatura(
                     COUNT(l.id) FILTER (WHERE {leads_date_filter_sql}) AS leads_periodo,
                     COUNT(l.id) FILTER (
                         WHERE {leads_date_filter_sql}
-                          AND (e.nombre ILIKE '%%Matr%%' OR e.nombre ILIKE '%%Ganad%%' OR e.nombre ILIKE '%%Cierr%%')
+                          AND (e.nombre ILIKE '%%Matr%%' OR e.nombre ILIKE '%%Ganad%%' OR e.nombre ILIKE '%%Cierr%%' OR e.nombre ILIKE '%%Venta Concretad%%')
                     ) AS matriculas
                 FROM crm.sedes s
                 LEFT JOIN crm.leads l ON l.sede_id = s.id AND l.activo = TRUE
@@ -539,7 +549,7 @@ def get_resumen_jefatura(
                     COUNT(l.id) FILTER (WHERE {leads_date_filter_sql}) AS leads_periodo,
                     COUNT(l.id) FILTER (
                         WHERE {leads_date_filter_sql}
-                          AND (e.nombre ILIKE '%%Matr%%' OR e.nombre ILIKE '%%Ganad%%' OR e.nombre ILIKE '%%Cierr%%')
+                          AND (e.nombre ILIKE '%%Matr%%' OR e.nombre ILIKE '%%Ganad%%' OR e.nombre ILIKE '%%Cierr%%' OR e.nombre ILIKE '%%Venta Concretad%%')
                     ) AS matriculas
                 FROM auth.users s
                 LEFT JOIN crm.equipos eq ON eq.supervisor_id = s.id AND eq.activo = TRUE

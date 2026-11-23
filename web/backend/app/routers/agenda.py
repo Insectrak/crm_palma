@@ -323,6 +323,22 @@ def create_contacto_v2(
                 )
             row = cur.fetchone()
 
+            if es_cita or (data.fecha_cita and str(data.fecha_cita).strip()) or cita_estado_id_final is not None:
+                try:
+                    from app.services import lead_history_service
+                    lead_history_service.record_cita_event(
+                        cur,
+                        lead_id=lead_id,
+                        user=current_user,
+                        action="create",
+                        contacto_id=row["id"] if row else None,
+                        new_fecha_cita=data.fecha_cita,
+                        new_cita_estado_id=cita_estado_id_final,
+                        new_tipo_cita=data.tipo_cita or data.tipo_contacto,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("[agenda] historial cita create fallo lead=%s: %s", lead_id, exc)
+
             if data.nuevo_estado_id:
                 cur.execute("SELECT estado_id FROM crm.leads WHERE id = %s", (lead_id,))
                 prev_lead = cur.fetchone()
@@ -345,6 +361,18 @@ def create_contacto_v2(
                         """,
                         (lead_id, current_user.user_id, f"Estado → {ne_nombre} (por Cita)", prox_act),
                     )
+                    try:
+                        from app.services import lead_history_service
+                        lead_history_service.record_status_change(
+                            cur,
+                            lead_id=lead_id,
+                            user=current_user,
+                            old_estado_id=prev_estado_id,
+                            new_estado_id=data.nuevo_estado_id,
+                            origen="cambio_estado",
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug("[agenda] historial estado create fallo lead=%s: %s", lead_id, exc)
 
             if data.fecha_proxima_accion and str(data.fecha_proxima_accion).strip():
                 cur.execute(
@@ -706,6 +734,8 @@ def get_citas(
               AND COALESCE(el.es_final, FALSE) = FALSE
               AND (
                   LOWER(COALESCE(el.nombre, '')) LIKE '%%seguimiento%%'
+                  OR TRANSLATE(LOWER(COALESCE(el.nombre, '')), 'áéíóúüñ', 'aeiouun') LIKE '%%negociacion%%'
+                  OR LOWER(COALESCE(el.nombre, '')) LIKE '%%visita%%'
                   OR LOWER(COALESCE(el.nombre, '')) LIKE '%%oportunidad%%'
                   OR LOWER(COALESCE(el.nombre, '')) LIKE '%%futur%%'
               )

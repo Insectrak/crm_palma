@@ -9,21 +9,20 @@ import useAuthStore from '@/store/authStore'
 export const MOTIVOS_PERDIDA_OPCIONES = [
   'No interesado',
   'Precio / falta de capacidad económica',
+  'No califica para financiamiento / crédito',
+  'Ubicación / proyecto no se ajusta',
   'Horarios / no se ajusta a sus tiempos',
   'Prefiere a la competencia',
-  'No se ajusta a la metodología',
   'No contactar más',
   'Otro',
 ]
 
 export const ACCIONES_OPORTUNIDAD_FUTURA_OPCIONES = [
-  'Llamar para coordinar matrícula / inicio',
-  'Contactar por WhatsApp con promoción / descuento',
-  'Volver a contactar en nueva convocatoria / fecha',
-  'Reevaluar interés y disponibilidad económica',
+  'Llamar para coordinar visita / cierre',
+  'Contactar por WhatsApp con promoción / bono',
+  'Volver a contactar en nueva etapa / lanzamiento',
+  'Reevaluar interés y capacidad de financiamiento',
   'Enviar información actualizada / catálogo',
-  'Servicio por edad no cubierto por el momento (menor de 12 años)',
-  'Petición de servicio para inicio de cursos a niveles más avanzados',
   'Otro',
 ]
 
@@ -41,17 +40,17 @@ export function normalizeEstadoNombre(str) {
 
 export function isEstadoSeguimiento(estadoNombre) {
   const norm = normalizeEstadoNombre(estadoNombre)
-  return norm.includes('seguimiento')
+  return norm.includes('seguimiento') || norm.includes('negociacion') || norm.includes('visita')
 }
 
 export function isEstadoPerdido(estadoNombre) {
   const norm = normalizeEstadoNombre(estadoNombre)
-  return norm.includes('perdido')
+  return norm.includes('perdid') || norm.includes('no interesado') || norm.includes('desist') || norm.includes('descart')
 }
 
 export function isEstadoMatricula(estadoNombre) {
   const norm = normalizeEstadoNombre(estadoNombre)
-  return norm.includes('matricula') || norm.includes('ganad') || norm.includes('cierr')
+  return norm.includes('matricula') || norm.includes('ganad') || norm.includes('cierr') || norm.includes('venta concretad')
 }
 
 export function isEstadoOportunidadFutura(estadoNombre) {
@@ -67,10 +66,10 @@ export function getSubestadosForEstado(estadoNombre) {
   if (!estadoNombre) return []
   const norm = normalizeEstadoNombre(estadoNombre)
 
-  if (norm.includes('perdid') || norm.includes('no interesado')) {
+  if (norm.includes('perdid') || norm.includes('no interesado') || norm.includes('desist') || norm.includes('descart')) {
     return MOTIVOS_PERDIDA_OPCIONES
   }
-  if (norm.includes('matr') || norm.includes('ganad') || norm.includes('cierr')) {
+  if (norm.includes('matr') || norm.includes('ganad') || norm.includes('cierr') || norm.includes('venta concretad')) {
     return ['Cierre autónomo', 'Con segunda voz']
   }
   if (norm.includes('oportunidad') || (norm.includes('futur') && !norm.includes('pasad'))) {
@@ -451,7 +450,7 @@ export default function CambioEstadoModal({
             <div className="space-y-3 bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
               <div className="flex items-center gap-2 text-emerald-900 font-medium text-sm">
                 <UserCheck size={16} className="text-emerald-600" />
-                <span>Datos de Matrícula y Cierre</span>
+                <span>Datos de Venta y Cierre</span>
               </div>
 
               <div>

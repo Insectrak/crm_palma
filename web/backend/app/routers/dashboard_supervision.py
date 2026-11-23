@@ -1574,6 +1574,28 @@ def get_seguimiento_citas(
         r["situacion_cita"] = "actual" if es_actual else "historico"
         r["desenlace_cita"] = outcome
 
+        # Enriquecer con cohorte de ingreso y maduración (sin alterar SQL params)
+        created_val = r.get("created_at")
+        cita_ref_val = r.get("ultima_fecha_cita") or r.get("primera_vez_cita_at")
+        cohorte_corte_dt = datetime.combine(
+            start_dt.astimezone(LIMA_TZ).date().replace(day=1),
+            datetime.min.time(),
+            tzinfo=LIMA_TZ,
+        )
+        if hasattr(created_val, "astimezone"):
+            created_lima = created_val.astimezone(LIMA_TZ) if created_val.tzinfo else created_val.replace(tzinfo=LIMA_TZ)
+            r["cohorte_mes"] = created_lima.strftime("%Y-%m")
+            r["es_mes_anterior"] = created_lima < cohorte_corte_dt
+            if hasattr(cita_ref_val, "astimezone"):
+                ref_lima = cita_ref_val.astimezone(LIMA_TZ) if cita_ref_val.tzinfo else cita_ref_val.replace(tzinfo=LIMA_TZ)
+                r["dias_maduracion"] = max(round((ref_lima - created_lima).total_seconds() / 86400, 1), 0.0)
+            else:
+                r["dias_maduracion"] = None
+        else:
+            r["cohorte_mes"] = None
+            r["es_mes_anterior"] = False
+            r["dias_maduracion"] = None
+
         # Serializar timestamps a ISO string
         for ts_key in ("created_at", "updated_at", "primera_vez_cita_at", "ultima_fecha_cita"):
             val = r.get(ts_key)
@@ -1680,4 +1702,784 @@ def get_seguimiento_citas(
         "por_fuente": por_fuente,
         "total_leads_listados": len(rows),
         "leads": rows[:500],
+    }
+
+
+def _classify_palma_outcome_detailed(estado_id: Optional[int], estado_nombre: Optional[str]) -> str:
+    """Clasifica desenlace detallado: 'venta', 'separacion', 'perdido', 'visita', 'negociacion', 'cita', u 'otro'."""
+    norm = (estado_nombre or "").strip().lower()
+    for src, dst in (("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"), ("ü", "u"), ("ñ", "n")):
+        norm = norm.replace(src, dst)
+    if any(k in norm for k in ("ganad", "matricul", "venta concretad", "cierr", "inscrit")):
+        return "venta"
+    if any(k in norm for k in ("reserv", "separac")):
+        return "separacion"
+    if estado_id == 7 or estado_id == 8 or any(k in norm for k in ("perdid", "desist", "descart", "no interesad")):
+        return "perdido"
+    if "visita" in norm:
+        return "visita"
+    if "negociacion" in norm:
+        return "negociacion"
+    if any(k in norm for k in ("cita", "agendad")):
+        return "cita"
+    return "otro"
+
+
+def _format_cohorte_label(ym: str) -> str:
+    """Convierte 'YYYY-MM' a etiqueta legible ej. 'Set 2026'."""
+    meses = ("", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Set", "Oct", "Nov", "Dic")
+    try:
+        y, m = ym.split("-")
+        return f"{meses[int(m)]} {y}"
+    except Exception:
+        return ym or "Sin fecha"
+
+
+@router.get("/evolucion-citas")
+def get_evolucion_citas(
+    periodo: str = Query("mes", description="hoy | ayer | semana | mes | 30dias | custom"),
+    fecha_inicio: Optional[str] = Query(None, description="YYYY-MM-DD si periodo=custom"),
+    fecha_fin: Optional[str] = Query(None, description="YYYY-MM-DD si periodo=custom"),
+    sede_id: Optional[str] = Query(None),
+    supervisor_id: Optional[str] = Query(None),
+    asesor_id: Optional[str] = Query(None),
+    current_user: TokenData = Depends(get_current_user),
+):
+    """
+    Evolución de Citas, Visitas y Recuperación de Cohortes (solo Admin):
+    1. Cuantifica logros del período (citas/visitas, separaciones y ventas) diferenciando
+       leads ingresados en el mes actual vs. recuperados de meses anteriores.
+    2. Traza el embudo real de evolución de cita/visita (incluyendo tropiezos: reprogramada,
+       no asistió, cancelada y recuperación posterior).
+    3. Lista la cartera antigua interesada de meses anteriores con gestión activa en el período
+       que aún no concreta cita/visita o cierre.
+    """
+    _check_admin(current_user)
+    start_dt, end_dt, dias_count = _parse_period_range(periodo, fecha_inicio, fecha_fin)
+    start_lima_date = start_dt.astimezone(LIMA_TZ).date()
+    cohorte_corte_dt = datetime.combine(start_lima_date.replace(day=1), datetime.min.time(), tzinfo=LIMA_TZ)
+    cohorte_corte_mes = cohorte_corte_dt.strftime("%Y-%m")
+
+    lead_where, lead_params = _build_supervision_scope_filters(sede_id, supervisor_id, asesor_id)
+
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                    to_regclass('crm.lead_historial_cambios') IS NOT NULL AS has_hist,
+                    to_regclass('crm.cita_estados') IS NOT NULL AS has_cita_estados,
+                    to_regclass('crm.llamadas') IS NOT NULL AS has_llamadas
+                """
+            )
+            schema_flags = cur.fetchone() or {}
+            has_hist = bool(schema_flags.get("has_hist"))
+            has_ce = bool(schema_flags.get("has_cita_estados"))
+            has_llamadas = bool(schema_flags.get("has_llamadas"))
+
+            def _cita_visita_nota_sql(expr: str) -> str:
+                norm_n = f"TRANSLATE(LOWER(COALESCE({expr}, '')), 'áéíóúüñ', 'aeiouun')"
+                sin_mot = f"REGEXP_REPLACE({norm_n}, '\\s*·\\s*.*$', '', 'g')"
+                sin_orig = f"REGEXP_REPLACE({sin_mot}, '\\s*\\(por [^)]*\\)\\s*', ' ', 'g')"
+                return f"({sin_orig} ~ '(cita|agendad|visita)')"
+
+            def _positivo_nota_sql(expr: str) -> str:
+                norm_n = f"TRANSLATE(LOWER(COALESCE({expr}, '')), 'áéíóúüñ', 'aeiouun')"
+                sin_mot = f"REGEXP_REPLACE({norm_n}, '\\s*·\\s*.*$', '', 'g')"
+                sin_orig = f"REGEXP_REPLACE({sin_mot}, '\\s*\\(por [^)]*\\)\\s*', ' ', 'g')"
+                return f"({sin_orig} ~ '(ganad|matricul|reserv|separac|venta concretad|cierr|inscrit)')"
+
+            cambio_cv_sql = _cita_visita_nota_sql("ch.notas")
+            cambio_pos_sql = _positivo_nota_sql("ch.notas")
+
+            ce_join = "LEFT JOIN crm.cita_estados ce ON ce.id = ch.cita_estado_id" if has_ce else ""
+            ce_tropiezo_cond = "COALESCE(ce.codigo, '') IN ('reprogramada', 'no_asistio', 'cancelada')" if has_ce else "FALSE"
+            ce_completada_cond = "COALESCE(ce.codigo, '') = 'completada'" if has_ce else "FALSE"
+            ce_pendiente_cond = "COALESCE(ce.codigo, 'pendiente') = 'pendiente'" if has_ce else "TRUE"
+
+            ce_lat_join = "LEFT JOIN crm.cita_estados ce2 ON ce2.id = c2.cita_estado_id" if has_ce else ""
+            ce_lat_select = (
+                "ce2.codigo AS ultima_cita_estado_codigo, ce2.nombre AS ultima_cita_estado_nombre, ce2.color_hex AS ultima_cita_estado_color"
+                if has_ce
+                else "NULL::text AS ultima_cita_estado_codigo, NULL::text AS ultima_cita_estado_nombre, NULL::text AS ultima_cita_estado_color"
+            )
+
+            hist_cte = ""
+            hist_join = ""
+            hist_params: list = []
+            if has_hist:
+                hist_cv_new = _cita_visita_nota_sql("lhc.valor_nuevo")
+                hist_cv_old = _cita_visita_nota_sql("lhc.valor_anterior")
+                hist_pos_new = _positivo_nota_sql("lhc.valor_nuevo")
+                hist_trop_val = "TRANSLATE(LOWER(COALESCE(lhc.valor_nuevo, '')), 'áéíóúüñ', 'aeiouun') ~ '(reprogram|no asist|cancelad)'"
+                hist_comp_val = "TRANSLATE(LOWER(COALESCE(lhc.valor_nuevo, '')), 'áéíóúüñ', 'aeiouun') ~ '(completad|realizad|asistio)'"
+                hist_cte = f"""
+                hist_evolucion AS (
+                    SELECT
+                        lhc.lead_id,
+                        MIN(lhc.created_at) FILTER (WHERE lhc.campo = 'estado_id' AND ({hist_cv_new} OR {hist_cv_old})) AS primera_hist_cv_at,
+                        BOOL_OR(
+                            (lhc.campo = 'estado_id' AND {hist_cv_new} AND lhc.created_at >= %s AND lhc.created_at <= %s)
+                            OR (lhc.campo IN ('cita_evento', 'cita_estado_id', 'fecha_cita') AND lhc.created_at >= %s AND lhc.created_at <= %s)
+                        ) AS tuvo_hist_cv_periodo,
+                        BOOL_OR(lhc.campo = 'estado_id' AND ({hist_cv_new} OR {hist_cv_old})) AS tuvo_hist_cv,
+                        MAX(lhc.created_at) FILTER (WHERE lhc.campo = 'estado_id' AND {hist_pos_new}) AS ultima_hist_pos_at,
+                        BOOL_OR(lhc.campo = 'estado_id' AND {hist_pos_new} AND lhc.created_at >= %s AND lhc.created_at <= %s) AS tuvo_hist_pos_periodo,
+                        BOOL_OR(
+                            (lhc.campo = 'cita_estado_id' AND {hist_trop_val})
+                            OR lhc.campo = 'fecha_cita'
+                        ) AS tuvo_hist_tropiezo,
+                        BOOL_OR(lhc.campo = 'cita_estado_id' AND {hist_comp_val}) AS tuvo_hist_completada,
+                        COUNT(*) FILTER (WHERE lhc.campo IN ('cita_estado_id', 'fecha_cita'))::int AS cambios_cita_hist
+                    FROM crm.lead_historial_cambios lhc
+                    WHERE lhc.campo IN ('estado_id', 'cita_evento', 'cita_estado_id', 'fecha_cita')
+                    GROUP BY lhc.lead_id
+                ),
+                """
+                hist_join = "LEFT JOIN hist_evolucion he ON he.lead_id = l.id"
+                hist_params = [start_dt, end_dt, start_dt, end_dt, start_dt, end_dt]
+
+            hist_select_cols = (
+                """
+                COALESCE(he.tuvo_hist_cv_periodo, FALSE) AS tuvo_hist_cv_periodo,
+                COALESCE(he.tuvo_hist_cv, FALSE) AS tuvo_hist_cv,
+                he.primera_hist_cv_at,
+                he.ultima_hist_pos_at,
+                COALESCE(he.tuvo_hist_pos_periodo, FALSE) AS tuvo_hist_pos_periodo,
+                COALESCE(he.tuvo_hist_tropiezo, FALSE) AS tuvo_hist_tropiezo,
+                COALESCE(he.tuvo_hist_completada, FALSE) AS tuvo_hist_completada,
+                COALESCE(he.cambios_cita_hist, 0)::int AS cambios_cita_hist,
+                """
+                if has_hist
+                else """
+                FALSE AS tuvo_hist_cv_periodo,
+                FALSE AS tuvo_hist_cv,
+                NULL::timestamptz AS primera_hist_cv_at,
+                NULL::timestamptz AS ultima_hist_pos_at,
+                FALSE AS tuvo_hist_pos_periodo,
+                FALSE AS tuvo_hist_tropiezo,
+                FALSE AS tuvo_hist_completada,
+                0::int AS cambios_cita_hist,
+                """
+            )
+
+            hist_where_or = "OR COALESCE(he.tuvo_hist_cv, FALSE) OR he.ultima_hist_pos_at IS NOT NULL" if has_hist else ""
+            hist_period_or = "OR tuvo_hist_cv_periodo" if has_hist else ""
+            hist_pos_period_or = "OR tuvo_hist_pos_periodo" if has_hist else ""
+
+            sql_evolucion = f"""
+                WITH contactos_evol AS (
+                    SELECT
+                        ch.lead_id,
+                        COUNT(*) FILTER (
+                            WHERE ch.fecha_cita IS NOT NULL
+                               OR STRPOS(LOWER(COALESCE(ch.resultado, '')), 'cita') > 0
+                               OR LOWER(COALESCE(ch.tipo_contacto, '')) = 'cita'
+                               OR STRPOS(LOWER(COALESCE(ch.tipo_cita, '')), 'visita') > 0
+                        )::int AS total_citas_reg,
+                        MIN(ch.created_at) FILTER (
+                            WHERE ch.fecha_cita IS NOT NULL
+                               OR STRPOS(LOWER(COALESCE(ch.resultado, '')), 'cita') > 0
+                               OR LOWER(COALESCE(ch.tipo_contacto, '')) = 'cita'
+                               OR STRPOS(LOWER(COALESCE(ch.tipo_cita, '')), 'visita') > 0
+                               OR (ch.tipo_contacto = 'cambio_estado' AND {cambio_cv_sql})
+                        ) AS primera_contacto_cv_at,
+                        BOOL_OR(
+                            (
+                                ch.fecha_cita IS NOT NULL
+                                OR STRPOS(LOWER(COALESCE(ch.resultado, '')), 'cita') > 0
+                                OR LOWER(COALESCE(ch.tipo_contacto, '')) = 'cita'
+                                OR STRPOS(LOWER(COALESCE(ch.tipo_cita, '')), 'visita') > 0
+                                OR (ch.tipo_contacto = 'cambio_estado' AND {cambio_cv_sql})
+                            )
+                            AND ch.created_at >= %s AND ch.created_at <= %s
+                        ) AS tuvo_contacto_cv_periodo,
+                        BOOL_OR(
+                            ch.fecha_cita IS NOT NULL
+                            OR STRPOS(LOWER(COALESCE(ch.resultado, '')), 'cita') > 0
+                            OR LOWER(COALESCE(ch.tipo_contacto, '')) = 'cita'
+                            OR STRPOS(LOWER(COALESCE(ch.tipo_cita, '')), 'visita') > 0
+                            OR (ch.tipo_contacto = 'cambio_estado' AND {cambio_cv_sql})
+                        ) AS tuvo_contacto_cv,
+                        BOOL_OR({ce_tropiezo_cond}) AS tuvo_ce_tropiezo,
+                        BOOL_OR({ce_completada_cond}) AS tuvo_ce_completada,
+                        BOOL_OR({ce_pendiente_cond} AND ch.fecha_cita IS NOT NULL) AS tuvo_ce_pendiente,
+                        MAX(ch.created_at) FILTER (WHERE ch.tipo_contacto = 'cambio_estado' AND {cambio_pos_sql}) AS ultimo_cambio_pos_at,
+                        BOOL_OR(
+                            ch.tipo_contacto = 'cambio_estado'
+                            AND {cambio_pos_sql}
+                            AND ch.created_at >= %s AND ch.created_at <= %s
+                        ) AS tuvo_cambio_pos_periodo,
+                        COUNT(*) FILTER (
+                            WHERE ch.tipo_contacto <> 'cambio_estado'
+                              AND ch.created_at >= %s AND ch.created_at <= %s
+                        )::int AS gestiones_contacto_periodo
+                    FROM crm.contactos ch
+                    {ce_join}
+                    GROUP BY ch.lead_id
+                ),
+                {hist_cte}
+                leads_base AS (
+                    SELECT
+                        l.id,
+                        TRIM(COALESCE(l.nombres, '') || ' ' || COALESCE(l.apellidos, '')) AS nombre,
+                        l.telefono,
+                        l.created_at,
+                        l.updated_at,
+                        l.estado_id,
+                        COALESCE(e.nombre, 'Sin estado') AS estado_nombre,
+                        COALESCE(e.color_hex, '#64748B') AS estado_color,
+                        COALESCE(e.es_final, FALSE) AS estado_es_final,
+                        COALESCE(f.nombre, 'Sin fuente') AS fuente_nombre,
+                        COALESCE(sed.nombre, 'Principal') AS sede_nombre,
+                        l.asesor_id::text AS asesor_id,
+                        TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) AS asesor_nombre,
+                        COALESCE(l.supervisor_id, eq.supervisor_id)::text AS supervisor_id,
+                        TRIM(COALESCE(sup.first_name, '') || ' ' || COALESCE(sup.last_name, '')) AS supervisor_nombre,
+                        COALESCE(ce.total_citas_reg, 0)::int AS total_citas_reg,
+                        ce.primera_contacto_cv_at,
+                        COALESCE(ce.tuvo_contacto_cv_periodo, FALSE) AS tuvo_contacto_cv_periodo,
+                        COALESCE(ce.tuvo_contacto_cv, FALSE) AS tuvo_contacto_cv,
+                        COALESCE(ce.tuvo_ce_tropiezo, FALSE) AS tuvo_ce_tropiezo,
+                        COALESCE(ce.tuvo_ce_completada, FALSE) AS tuvo_ce_completada,
+                        COALESCE(ce.tuvo_ce_pendiente, FALSE) AS tuvo_ce_pendiente,
+                        ce.ultimo_cambio_pos_at,
+                        COALESCE(ce.tuvo_cambio_pos_periodo, FALSE) AS tuvo_cambio_pos_periodo,
+                        COALESCE(ce.gestiones_contacto_periodo, 0)::int AS gestiones_contacto_periodo,
+                        {hist_select_cols}
+                        uc.ultima_fecha_cita,
+                        uc.tipo_cita,
+                        uc.ultima_cita_estado_codigo,
+                        uc.ultima_cita_estado_nombre,
+                        uc.ultima_cita_estado_color
+                    FROM crm.leads l
+                    LEFT JOIN crm.estados_lead e ON e.id = l.estado_id
+                    LEFT JOIN crm.fuentes f ON f.id = l.fuente_id
+                    LEFT JOIN crm.sedes sed ON sed.id = l.sede_id
+                    LEFT JOIN auth.users u ON u.id = l.asesor_id
+                    LEFT JOIN crm.equipos eq ON eq.asesor_id = l.asesor_id AND eq.activo = TRUE
+                    LEFT JOIN auth.users sup ON sup.id = COALESCE(l.supervisor_id, eq.supervisor_id)
+                    LEFT JOIN contactos_evol ce ON ce.lead_id = l.id
+                    {hist_join}
+                    LEFT JOIN LATERAL (
+                        SELECT
+                            c2.fecha_cita AS ultima_fecha_cita,
+                            c2.tipo_cita,
+                            {ce_lat_select}
+                        FROM crm.contactos c2
+                        {ce_lat_join}
+                        WHERE c2.lead_id = l.id
+                          AND (
+                              c2.fecha_cita IS NOT NULL
+                              OR STRPOS(LOWER(COALESCE(c2.resultado, '')), 'cita') > 0
+                              OR LOWER(COALESCE(c2.tipo_contacto, '')) = 'cita'
+                              OR STRPOS(LOWER(COALESCE(c2.tipo_cita, '')), 'visita') > 0
+                          )
+                        ORDER BY c2.fecha_cita DESC NULLS LAST, c2.created_at DESC, c2.id DESC
+                        LIMIT 1
+                    ) uc ON TRUE
+                    WHERE {lead_where}
+                      AND (
+                          TRANSLATE(LOWER(TRIM(COALESCE(e.nombre, ''))), 'áéíóúüñ', 'aeiouun') ~ '(cita|agendad|visita|ganad|matricul|reserv|separac|venta concretad|cierr|inscrit)'
+                          OR COALESCE(ce.tuvo_contacto_cv, FALSE)
+                          {hist_where_or}
+                      )
+                )
+                SELECT
+                    *,
+                    (
+                        tuvo_contacto_cv_periodo
+                        {hist_period_or}
+                        OR (
+                            TRANSLATE(LOWER(TRIM(COALESCE(estado_nombre, ''))), 'áéíóúüñ', 'aeiouun') ~ '(cita|agendad|visita)'
+                            AND COALESCE(updated_at, created_at) >= %s
+                            AND COALESCE(updated_at, created_at) <= %s
+                        )
+                    ) AS cita_visita_en_periodo,
+                    (
+                        TRANSLATE(LOWER(TRIM(COALESCE(estado_nombre, ''))), 'áéíóúüñ', 'aeiouun') ~ '(ganad|matricul|reserv|separac|venta concretad|cierr|inscrit)'
+                        AND (
+                            tuvo_cambio_pos_periodo
+                            {hist_pos_period_or}
+                            OR (
+                                ultimo_cambio_pos_at IS NULL
+                                AND COALESCE(updated_at, created_at) >= %s
+                                AND COALESCE(updated_at, created_at) <= %s
+                            )
+                        )
+                    ) AS cierre_en_periodo
+                FROM leads_base
+            """
+            params_evol = [
+                start_dt, end_dt,
+                start_dt, end_dt,
+                start_dt, end_dt,
+                *hist_params,
+                *lead_params,
+                start_dt, end_dt,
+                start_dt, end_dt,
+            ]
+            cur.execute(sql_evolucion, params_evol)
+            evol_rows = [dict(r) for r in cur.fetchall()]
+
+            # Query 2: Cartera antigua interesada (leads ingresados antes de cohorte_corte_dt,
+            # activos y no terminales, con llamadas/contactos en el período o próxima gestión vigente)
+            llamadas_cte = ""
+            llamadas_join = ""
+            llamadas_col = "0::int AS llamadas_periodo"
+            llamadas_filter = "FALSE"
+            llamadas_params: list = []
+            if has_llamadas:
+                llamadas_cte = """
+                llamadas_antiguas AS (
+                    SELECT
+                        ll.lead_id,
+                        COUNT(*)::int AS llamadas_periodo
+                    FROM crm.llamadas ll
+                    WHERE ll.lead_id IS NOT NULL
+                      AND ll.fecha_llamada >= %s AND ll.fecha_llamada <= %s
+                    GROUP BY ll.lead_id
+                ),
+                """
+                llamadas_join = "LEFT JOIN llamadas_antiguas lla ON lla.lead_id = l.id"
+                llamadas_col = "COALESCE(lla.llamadas_periodo, 0)::int AS llamadas_periodo"
+                llamadas_filter = "COALESCE(lla.llamadas_periodo, 0) > 0"
+                llamadas_params = [start_dt, end_dt]
+
+            sql_cartera = f"""
+                WITH contactos_antiguos AS (
+                    SELECT
+                        c.lead_id,
+                        COUNT(*) FILTER (
+                            WHERE c.tipo_contacto <> 'cambio_estado'
+                              AND c.created_at >= %s AND c.created_at <= %s
+                        )::int AS contactos_periodo,
+                        MAX(c.created_at) FILTER (WHERE c.tipo_contacto <> 'cambio_estado') AS ultimo_contacto_at,
+                        BOOL_OR(
+                            c.fecha_cita IS NOT NULL
+                            OR STRPOS(LOWER(COALESCE(c.resultado, '')), 'cita') > 0
+                            OR LOWER(COALESCE(c.tipo_contacto, '')) = 'cita'
+                        ) AS tuvo_intento_cita
+                    FROM crm.contactos c
+                    GROUP BY c.lead_id
+                ),
+                {llamadas_cte}
+                cartera_base AS (
+                    SELECT
+                        l.id,
+                        TRIM(COALESCE(l.nombres, '') || ' ' || COALESCE(l.apellidos, '')) AS nombre,
+                        l.telefono,
+                        l.created_at,
+                        l.fecha_proxima_gestion,
+                        l.accion_proxima_gestion,
+                        COALESCE(e.nombre, 'Sin estado') AS estado_nombre,
+                        COALESCE(e.color_hex, '#64748B') AS estado_color,
+                        COALESCE(f.nombre, 'Sin fuente') AS fuente_nombre,
+                        l.asesor_id::text AS asesor_id,
+                        TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) AS asesor_nombre,
+                        TRIM(COALESCE(sup.first_name, '') || ' ' || COALESCE(sup.last_name, '')) AS supervisor_nombre,
+                        COALESCE(ca.contactos_periodo, 0)::int AS contactos_periodo,
+                        {llamadas_col},
+                        ca.ultimo_contacto_at,
+                        COALESCE(ca.tuvo_intento_cita, FALSE) AS tuvo_intento_cita
+                    FROM crm.leads l
+                    LEFT JOIN crm.estados_lead e ON e.id = l.estado_id
+                    LEFT JOIN crm.fuentes f ON f.id = l.fuente_id
+                    LEFT JOIN auth.users u ON u.id = l.asesor_id
+                    LEFT JOIN crm.equipos eq ON eq.asesor_id = l.asesor_id AND eq.activo = TRUE
+                    LEFT JOIN auth.users sup ON sup.id = COALESCE(l.supervisor_id, eq.supervisor_id)
+                    LEFT JOIN contactos_antiguos ca ON ca.lead_id = l.id
+                    {llamadas_join}
+                    WHERE {lead_where}
+                      AND l.created_at < %s
+                      AND COALESCE(e.es_final, FALSE) = FALSE
+                      AND NOT ({NORMALIZED_STATE_EXPR} ~ '(ganad|matricul|reserv|separac|venta concretad|cierr|inscrit|perdid|desist|descart|no interesad|equivocad|inexistent|errone|no existe|bolsa|reciclaje)')
+                      AND (
+                          COALESCE(ca.contactos_periodo, 0) > 0
+                          OR {llamadas_filter}
+                          OR (
+                              l.fecha_proxima_gestion IS NOT NULL
+                              AND l.fecha_proxima_gestion >= %s
+                              AND {NORMALIZED_STATE_EXPR} ~ '(negociacion|seguimiento|contactad|cita|visita|oportunidad)'
+                          )
+                      )
+                )
+                SELECT *
+                FROM cartera_base
+                ORDER BY
+                    (contactos_periodo + llamadas_periodo) DESC,
+                    ultimo_contacto_at DESC NULLS LAST,
+                    created_at DESC
+            """
+            params_cartera = [
+                start_dt, end_dt,
+                *llamadas_params,
+                *lead_params,
+                cohorte_corte_dt,
+                start_dt,
+            ]
+            cur.execute(sql_cartera, params_cartera)
+            cartera_rows = [dict(r) for r in cur.fetchall()]
+
+    # ── Procesamiento en Python ───────────────────────────────────────────
+    def _to_lima(dt_val):
+        if not hasattr(dt_val, "astimezone"):
+            return None
+        return dt_val.astimezone(LIMA_TZ) if dt_val.tzinfo else dt_val.replace(tzinfo=LIMA_TZ)
+
+    def _median(nums: list[float]) -> Optional[float]:
+        if not nums:
+            return None
+        s = sorted(nums)
+        mid = len(s) // 2
+        if len(s) % 2 == 1:
+            return round(s[mid], 1)
+        return round((s[mid - 1] + s[mid]) / 2, 1)
+
+    citas_visitas_mismo_mes = 0
+    citas_visitas_mes_anterior = 0
+    separaciones_mismo_mes = 0
+    separaciones_mes_anterior = 0
+    ventas_mismo_mes = 0
+    ventas_mes_anterior = 0
+
+    maduracion_cita_dias: list[float] = []
+    maduracion_cierre_dias: list[float] = []
+
+    embudo_tot = {
+        "total_flujo": 0,
+        "agendadas": 0,
+        "con_tropiezo": 0,
+        "recuperadas_tropiezo": 0,
+        "concretaron_cita_visita": 0,
+        "separaciones": 0,
+        "ventas": 0,
+        "perdidos": 0,
+    }
+
+    cohortes_map: dict[str, dict] = {}
+    asesores_map: dict[str, dict] = {}
+    leads_recuperados: list[dict] = []
+    leads_embudo: list[dict] = []
+
+    def _ensure_asesor(row: dict) -> dict:
+        key = row.get("asesor_id") or "sin_asignar"
+        if key not in asesores_map:
+            asesores_map[key] = {
+                "asesor_id": row.get("asesor_id"),
+                "asesor_nombre": (row.get("asesor_nombre") or "").strip() or "Sin asignar",
+                "supervisor_nombre": (row.get("supervisor_nombre") or "").strip() or "Sin supervisor",
+                "citas_mes_actual": 0,
+                "citas_meses_anteriores": 0,
+                "separaciones_mes_actual": 0,
+                "separaciones_meses_anteriores": 0,
+                "ventas_mes_actual": 0,
+                "ventas_meses_anteriores": 0,
+                "tropiezos": 0,
+                "recuperadas_tropiezo": 0,
+                "cartera_antigua_gestionada": 0,
+                "maduracion_dias_sum": 0.0,
+                "maduracion_dias_cnt": 0,
+            }
+        return asesores_map[key]
+
+    def _ensure_cohorte(ym: str) -> dict:
+        if ym not in cohortes_map:
+            cohortes_map[ym] = {
+                "cohorte_mes": ym,
+                "cohorte_label": _format_cohorte_label(ym),
+                "es_mes_anterior": ym < cohorte_corte_mes,
+                "citas_visitas_periodo": 0,
+                "separaciones_periodo": 0,
+                "ventas_periodo": 0,
+                "cartera_antigua_activa": 0,
+                "tropiezos": 0,
+                "recuperadas": 0,
+            }
+        return cohortes_map[ym]
+
+    for r in evol_rows:
+        created_lima = _to_lima(r.get("created_at"))
+        cohorte_ym = created_lima.strftime("%Y-%m") if created_lima else "Sin fecha"
+        es_mes_anterior = bool(created_lima and created_lima < cohorte_corte_dt)
+
+        desenlace = _classify_palma_outcome_detailed(r.get("estado_id"), r.get("estado_nombre"))
+        cita_en_periodo = bool(r.get("cita_visita_en_periodo"))
+        cierre_en_periodo = bool(r.get("cierre_en_periodo"))
+
+        tuvo_cv = bool(r.get("tuvo_contacto_cv") or r.get("tuvo_hist_cv") or desenlace in ("cita", "visita"))
+        tuvo_tropiezo = bool(
+            r.get("tuvo_ce_tropiezo")
+            or r.get("tuvo_hist_tropiezo")
+            or (r.get("total_citas_reg") or 0) >= 2
+        )
+        concretada = bool(
+            r.get("tuvo_ce_completada")
+            or r.get("tuvo_hist_completada")
+            or desenlace in ("visita", "negociacion", "separacion", "venta")
+        )
+        recuperada = bool(tuvo_tropiezo and concretada)
+
+        primera_cv_lima = _to_lima(r.get("primera_hist_cv_at") or r.get("primera_contacto_cv_at") or r.get("ultima_fecha_cita"))
+        cierre_lima = _to_lima(r.get("ultima_hist_pos_at") or r.get("ultimo_cambio_pos_at") or r.get("updated_at"))
+
+        dias_hasta_cita = None
+        if created_lima and primera_cv_lima:
+            dias_hasta_cita = max(round((primera_cv_lima - created_lima).total_seconds() / 86400, 1), 0.0)
+        dias_hasta_cierre = None
+        if created_lima and cierre_lima and desenlace in ("separacion", "venta"):
+            dias_hasta_cierre = max(round((cierre_lima - created_lima).total_seconds() / 86400, 1), 0.0)
+
+        # Logros en el período seleccionado
+        if cita_en_periodo:
+            if es_mes_anterior:
+                citas_visitas_mes_anterior += 1
+            else:
+                citas_visitas_mismo_mes += 1
+            if dias_hasta_cita is not None:
+                maduracion_cita_dias.append(dias_hasta_cita)
+
+        if cierre_en_periodo:
+            if desenlace == "separacion":
+                if es_mes_anterior:
+                    separaciones_mes_anterior += 1
+                else:
+                    separaciones_mismo_mes += 1
+            elif desenlace == "venta":
+                if es_mes_anterior:
+                    ventas_mes_anterior += 1
+                else:
+                    ventas_mismo_mes += 1
+            if dias_hasta_cierre is not None:
+                maduracion_cierre_dias.append(dias_hasta_cierre)
+
+        # Embudo sobre universo que tuvo actividad de cita/visita o cierre en el período
+        en_universo_periodo = cita_en_periodo or cierre_en_periodo
+        if en_universo_periodo:
+            embudo_tot["total_flujo"] += 1
+            if tuvo_cv:
+                embudo_tot["agendadas"] += 1
+            if tuvo_tropiezo:
+                embudo_tot["con_tropiezo"] += 1
+            if recuperada:
+                embudo_tot["recuperadas_tropiezo"] += 1
+            if concretada:
+                embudo_tot["concretaron_cita_visita"] += 1
+            if desenlace == "separacion":
+                embudo_tot["separaciones"] += 1
+            elif desenlace == "venta":
+                embudo_tot["ventas"] += 1
+            elif desenlace == "perdido":
+                embudo_tot["perdidos"] += 1
+
+            coh = _ensure_cohorte(cohorte_ym)
+            if cita_en_periodo:
+                coh["citas_visitas_periodo"] += 1
+            if cierre_en_periodo and desenlace == "separacion":
+                coh["separaciones_periodo"] += 1
+            if cierre_en_periodo and desenlace == "venta":
+                coh["ventas_periodo"] += 1
+            if tuvo_tropiezo:
+                coh["tropiezos"] += 1
+            if recuperada:
+                coh["recuperadas"] += 1
+
+            as_item = _ensure_asesor(r)
+            if cita_en_periodo:
+                if es_mes_anterior:
+                    as_item["citas_meses_anteriores"] += 1
+                else:
+                    as_item["citas_mes_actual"] += 1
+            if cierre_en_periodo and desenlace == "separacion":
+                if es_mes_anterior:
+                    as_item["separaciones_meses_anteriores"] += 1
+                else:
+                    as_item["separaciones_mes_actual"] += 1
+            if cierre_en_periodo and desenlace == "venta":
+                if es_mes_anterior:
+                    as_item["ventas_meses_anteriores"] += 1
+                else:
+                    as_item["ventas_mes_actual"] += 1
+            if tuvo_tropiezo:
+                as_item["tropiezos"] += 1
+            if recuperada:
+                as_item["recuperadas_tropiezo"] += 1
+            if dias_hasta_cierre is not None:
+                as_item["maduracion_dias_sum"] += dias_hasta_cierre
+                as_item["maduracion_dias_cnt"] += 1
+
+            item_out = {
+                "id": r.get("id"),
+                "nombre": r.get("nombre"),
+                "telefono": r.get("telefono"),
+                "estado_nombre": r.get("estado_nombre"),
+                "estado_color": r.get("estado_color"),
+                "desenlace": desenlace,
+                "fuente_nombre": r.get("fuente_nombre"),
+                "sede_nombre": r.get("sede_nombre"),
+                "asesor_id": r.get("asesor_id"),
+                "asesor_nombre": (r.get("asesor_nombre") or "").strip() or "Sin asignar",
+                "supervisor_nombre": (r.get("supervisor_nombre") or "").strip() or "Sin supervisor",
+                "cohorte_mes": cohorte_ym,
+                "cohorte_label": _format_cohorte_label(cohorte_ym),
+                "es_mes_anterior": es_mes_anterior,
+                "cita_visita_en_periodo": cita_en_periodo,
+                "cierre_en_periodo": cierre_en_periodo,
+                "tuvo_tropiezo": tuvo_tropiezo,
+                "recuperada_tropiezo": recuperada,
+                "concretada": concretada,
+                "total_citas_reg": r.get("total_citas_reg") or 0,
+                "cambios_cita_hist": r.get("cambios_cita_hist") or 0,
+                "ultima_cita_estado_nombre": r.get("ultima_cita_estado_nombre"),
+                "ultima_cita_estado_color": r.get("ultima_cita_estado_color"),
+                "dias_hasta_cita": dias_hasta_cita,
+                "dias_hasta_cierre": dias_hasta_cierre,
+                "created_at": created_lima.isoformat() if created_lima else None,
+                "ultima_fecha_cita": r["ultima_fecha_cita"].isoformat() if hasattr(r.get("ultima_fecha_cita"), "isoformat") else r.get("ultima_fecha_cita"),
+            }
+            leads_embudo.append(item_out)
+            if es_mes_anterior:
+                leads_recuperados.append(item_out)
+
+    # Cartera antigua interesada
+    cartera_con_gestion_reciente = 0
+    cartera_con_intento_cita_fallido = 0
+    leads_cartera_out: list[dict] = []
+    now_lima = datetime.now(LIMA_TZ)
+
+    for c_row in cartera_rows:
+        created_lima = _to_lima(c_row.get("created_at"))
+        cohorte_ym = created_lima.strftime("%Y-%m") if created_lima else "Sin fecha"
+        dias_antig = max(round((now_lima - created_lima).total_seconds() / 86400, 1), 0.0) if created_lima else None
+
+        coh = _ensure_cohorte(cohorte_ym)
+        coh["cartera_antigua_activa"] += 1
+
+        gestiones_rec = (c_row.get("contactos_periodo") or 0) + (c_row.get("llamadas_periodo") or 0)
+        if gestiones_rec > 0:
+            cartera_con_gestion_reciente += 1
+            as_item = _ensure_asesor(c_row)
+            as_item["cartera_antigua_gestionada"] += 1
+        if c_row.get("tuvo_intento_cita"):
+            cartera_con_intento_cita_fallido += 1
+
+        leads_cartera_out.append({
+            "id": c_row.get("id"),
+            "nombre": c_row.get("nombre"),
+            "telefono": c_row.get("telefono"),
+            "estado_nombre": c_row.get("estado_nombre"),
+            "estado_color": c_row.get("estado_color"),
+            "fuente_nombre": c_row.get("fuente_nombre"),
+            "asesor_id": c_row.get("asesor_id"),
+            "asesor_nombre": (c_row.get("asesor_nombre") or "").strip() or "Sin asignar",
+            "supervisor_nombre": (c_row.get("supervisor_nombre") or "").strip() or "Sin supervisor",
+            "cohorte_mes": cohorte_ym,
+            "cohorte_label": _format_cohorte_label(cohorte_ym),
+            "dias_antiguedad": dias_antig,
+            "contactos_periodo": c_row.get("contactos_periodo") or 0,
+            "llamadas_periodo": c_row.get("llamadas_periodo") or 0,
+            "gestiones_periodo": gestiones_rec,
+            "tuvo_intento_cita": bool(c_row.get("tuvo_intento_cita")),
+            "accion_proxima_gestion": c_row.get("accion_proxima_gestion"),
+            "created_at": created_lima.isoformat() if created_lima else None,
+            "fecha_proxima_gestion": c_row["fecha_proxima_gestion"].isoformat() if hasattr(c_row.get("fecha_proxima_gestion"), "isoformat") else c_row.get("fecha_proxima_gestion"),
+            "ultimo_contacto_at": c_row["ultimo_contacto_at"].isoformat() if hasattr(c_row.get("ultimo_contacto_at"), "isoformat") else c_row.get("ultimo_contacto_at"),
+        })
+
+    por_cohorte_mes = sorted(
+        cohortes_map.values(),
+        key=lambda x: x["cohorte_mes"],
+        reverse=True,
+    )
+
+    por_asesor = []
+    for a in asesores_map.values():
+        total_citas_a = a["citas_mes_actual"] + a["citas_meses_anteriores"]
+        total_cierres_a = (
+            a["separaciones_mes_actual"] + a["separaciones_meses_anteriores"]
+            + a["ventas_mes_actual"] + a["ventas_meses_anteriores"]
+        )
+        cierres_recuperados_a = a["separaciones_meses_anteriores"] + a["ventas_meses_anteriores"]
+        cnt_m = a.pop("maduracion_dias_cnt")
+        sum_m = a.pop("maduracion_dias_sum")
+        a["total_citas_periodo"] = total_citas_a
+        a["total_cierres_periodo"] = total_cierres_a
+        a["cierres_meses_anteriores"] = cierres_recuperados_a
+        a["pct_recuperacion_tropiezo"] = _pct(a["recuperadas_tropiezo"], a["tropiezos"])
+        a["pct_aporte_meses_anteriores"] = _pct(
+            a["citas_meses_anteriores"] + cierres_recuperados_a,
+            total_citas_a + total_cierres_a,
+        )
+        a["maduracion_promedio_dias"] = round(sum_m / cnt_m, 1) if cnt_m > 0 else None
+        por_asesor.append(a)
+
+    por_asesor.sort(
+        key=lambda x: (
+            -(x["cierres_meses_anteriores"] + x["citas_meses_anteriores"]),
+            -x["total_cierres_periodo"],
+            -x["total_citas_periodo"],
+            x["asesor_nombre"],
+        )
+    )
+
+    total_citas_periodo = citas_visitas_mismo_mes + citas_visitas_mes_anterior
+    total_sep_periodo = separaciones_mismo_mes + separaciones_mes_anterior
+    total_ventas_periodo = ventas_mismo_mes + ventas_mes_anterior
+    total_cierres_periodo = total_sep_periodo + total_ventas_periodo
+    total_cierres_mes_anterior = separaciones_mes_anterior + ventas_mes_anterior
+
+    embudo_etapas = [
+        {"codigo": "agendadas", "label": "Citas / Visitas en flujo", "total": embudo_tot["agendadas"], "color": "#6366F1"},
+        {"codigo": "con_tropiezo", "label": "Tuvieron tropiezo (Reprog. / No asistió)", "total": embudo_tot["con_tropiezo"], "color": "#F59E0B"},
+        {"codigo": "recuperadas", "label": "Recuperadas tras tropiezo", "total": embudo_tot["recuperadas_tropiezo"], "color": "#8B5CF6"},
+        {"codigo": "concretadas", "label": "Concretaron Cita / Visita", "total": embudo_tot["concretaron_cita_visita"], "color": "#0EA5E9"},
+        {"codigo": "separaciones", "label": "Separación / Reserva", "total": embudo_tot["separaciones"], "color": "#14B8A6"},
+        {"codigo": "ventas", "label": "Venta Concretada", "total": embudo_tot["ventas"], "color": "#10B981"},
+        {"codigo": "perdidos", "label": "Desistió / Perdido", "total": embudo_tot["perdidos"], "color": "#EF4444"},
+    ]
+
+    leads_recuperados.sort(
+        key=lambda x: (
+            0 if x["cierre_en_periodo"] else 1,
+            -(x["dias_hasta_cierre"] or x["dias_hasta_cita"] or 0),
+        )
+    )
+
+    return {
+        "periodo": periodo,
+        "cohorte_corte_mes": cohorte_corte_mes,
+        "rango_fechas": {
+            "fecha_inicio": start_dt.strftime("%Y-%m-%d") if start_dt else None,
+            "fecha_fin": end_dt.strftime("%Y-%m-%d") if end_dt else None,
+            "dias": dias_count,
+        },
+        "resumen": {
+            "total_citas_visitas_periodo": total_citas_periodo,
+            "citas_visitas_mismo_mes": citas_visitas_mismo_mes,
+            "citas_visitas_mes_anterior": citas_visitas_mes_anterior,
+            "pct_citas_mes_anterior": _pct(citas_visitas_mes_anterior, total_citas_periodo),
+            "total_separaciones_periodo": total_sep_periodo,
+            "separaciones_mismo_mes": separaciones_mismo_mes,
+            "separaciones_mes_anterior": separaciones_mes_anterior,
+            "total_ventas_periodo": total_ventas_periodo,
+            "ventas_mismo_mes": ventas_mismo_mes,
+            "ventas_mes_anterior": ventas_mes_anterior,
+            "total_cierres_periodo": total_cierres_periodo,
+            "cierres_mes_anterior": total_cierres_mes_anterior,
+            "pct_cierres_mes_anterior": _pct(total_cierres_mes_anterior, total_cierres_periodo),
+            "maduracion_cita_promedio_dias": round(sum(maduracion_cita_dias) / len(maduracion_cita_dias), 1) if maduracion_cita_dias else None,
+            "maduracion_cita_mediana_dias": _median(maduracion_cita_dias),
+            "maduracion_cierre_promedio_dias": round(sum(maduracion_cierre_dias) / len(maduracion_cierre_dias), 1) if maduracion_cierre_dias else None,
+            "maduracion_cierre_mediana_dias": _median(maduracion_cierre_dias),
+            "pct_recuperacion_tropiezo": _pct(embudo_tot["recuperadas_tropiezo"], embudo_tot["con_tropiezo"]),
+            "cartera_antigua_total": len(leads_cartera_out),
+            "cartera_antigua_con_gestion_reciente": cartera_con_gestion_reciente,
+            "cartera_antigua_con_intento_cita": cartera_con_intento_cita_fallido,
+        },
+        "embudo": embudo_etapas,
+        "por_cohorte_mes": por_cohorte_mes,
+        "por_asesor": por_asesor,
+        "leads_recuperados": leads_recuperados[:300],
+        "leads_cartera_antigua": leads_cartera_out[:300],
+        "leads_embudo": leads_embudo[:300],
     }

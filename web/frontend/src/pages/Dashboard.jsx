@@ -625,14 +625,14 @@ function TopAsesores({ data, isLoading }) {
                     {/* Conversion rate pill */}
                     <span
                       className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${conversionColor(rate)}`}
-                      title={`${rate}% de conversión (${matriculas} matrículas de ${asesor.total_leads} leads)`}
+                      title={`${rate}% de conversión (${matriculas} ventas de ${asesor.total_leads} leads)`}
                     >
                       {rate}%
                     </span>
                     {/* Lead & Matriculas count */}
                     <span
                       className="text-xs font-semibold text-gray-700 dark:text-slate-300 tabular-nums min-w-[3.5rem] text-right"
-                      title={`${matriculas} matrículas de ${asesor.total_leads} leads`}
+                      title={`${matriculas} ventas de ${asesor.total_leads} leads`}
                     >
                       <span className={matriculas > 0 ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-gray-500 dark:text-slate-400"}>
                         {matriculas}
@@ -1149,7 +1149,7 @@ export default function Dashboard() {
             onClick={() => navigate('/leads')}
           />
           <MiniStat
-            label="Matrículas"
+            label="Ventas"
             value={period.matriculas}
             comparison={{ current: period.matriculas, previous: prevPeriod.matriculas }}
             color="green"

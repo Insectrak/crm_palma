@@ -67,19 +67,21 @@ def resumen(
                     COUNT(*) FILTER (WHERE e.nombre = 'Calificado') AS calificados,
                     COUNT(*) FILTER (WHERE UPPER(COALESCE(l.calidad, '')) = 'TIBIO') AS tibios,
                     COUNT(*) FILTER (WHERE UPPER(COALESCE(l.calidad, '')) = 'CALIENTE') AS calientes,
-                    COUNT(*) FILTER (WHERE e.nombre = 'En negociación') AS en_negociacion,
-                    COUNT(*) FILTER (WHERE e.nombre ILIKE '%%seguimiento%%') AS en_seguimiento,
+                    COUNT(*) FILTER (WHERE TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') = 'en negociacion') AS en_negociacion,
+                    COUNT(*) FILTER (WHERE e.nombre ILIKE '%%seguimiento%%' OR TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') IN ('en negociacion', 'visita a proyecto')) AS en_seguimiento,
                     COUNT(*) FILTER (WHERE e.nombre = 'Ganado')    AS ganados,
                     COUNT(*) FILTER (
                         WHERE e.nombre ILIKE '%%matr%%'
                            OR e.nombre ILIKE '%%ganad%%'
                            OR e.nombre ILIKE '%%cierr%%'
+                           OR e.nombre ILIKE '%%venta concretad%%'
                     )                                              AS matriculas,
-                    COUNT(*) FILTER (WHERE e.nombre = 'Perdido' OR e.nombre ILIKE '%%perdid%%') AS perdidos,
+                    COUNT(*) FILTER (WHERE e.nombre = 'Perdido' OR e.nombre ILIKE '%%perdid%%' OR e.nombre ILIKE '%%desist%%') AS perdidos,
                     COUNT(*) FILTER (WHERE e.nombre = 'No interesado') AS no_interesados,
                     COUNT(*) FILTER (
                         WHERE e.nombre ILIKE '%%cod%%'
                            OR e.nombre ILIKE '%%reserva%%'
+                           OR e.nombre ILIKE '%%separac%%'
                            OR e.nombre ILIKE '%%compromiso%%'
                     )                                              AS cod,
                     COUNT(*) FILTER (WHERE l.created_at >= CURRENT_DATE::timestamptz) AS leads_hoy,
@@ -89,6 +91,7 @@ def resumen(
                             WHERE e.nombre ILIKE '%%matr%%'
                                OR e.nombre ILIKE '%%ganad%%'
                                OR e.nombre ILIKE '%%cierr%%'
+                               OR e.nombre ILIKE '%%venta concretad%%'
                         ) / NULLIF(COUNT(*),0),
                         2
                     )                                              AS tasa_conversion_pct
@@ -115,28 +118,32 @@ def resumen(
                     COUNT(*) FILTER (WHERE e.nombre = 'Calificado')                AS calificados,
                     COUNT(*) FILTER (WHERE UPPER(COALESCE(l.calidad, '')) = 'TIBIO') AS tibios,
                     COUNT(*) FILTER (WHERE UPPER(COALESCE(l.calidad, '')) = 'CALIENTE') AS calientes,
-                    COUNT(*) FILTER (WHERE e.nombre = 'En negociación')            AS en_negociacion,
-                    COUNT(*) FILTER (WHERE e.nombre ILIKE '%%seguimiento%%')       AS en_seguimiento,
+                    COUNT(*) FILTER (WHERE TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') = 'en negociacion') AS en_negociacion,
+                    COUNT(*) FILTER (WHERE e.nombre ILIKE '%%seguimiento%%' OR TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') IN ('en negociacion', 'visita a proyecto')) AS en_seguimiento,
                     COUNT(*) FILTER (WHERE e.nombre = 'Ganado')                    AS leads_ganados,
                     COUNT(*) FILTER (WHERE e.nombre = 'Ganado')                    AS ganados,
                     COUNT(*) FILTER (
                         WHERE e.nombre ILIKE '%%matr%%'
                            OR e.nombre ILIKE '%%ganad%%'
                            OR e.nombre ILIKE '%%cierr%%'
+                           OR e.nombre ILIKE '%%venta concretad%%'
                     )                                                              AS matriculas,
                     COUNT(*) FILTER (
                         WHERE e.nombre = 'Perdido'
                            OR e.nombre ILIKE '%%perdid%%'
+                           OR e.nombre ILIKE '%%desist%%'
                            OR e.nombre = 'No interesado'
                            OR e.nombre ILIKE '%%no inter%%'
                     )                                                              AS perdidos,
                     COUNT(*) FILTER (
                         WHERE e.nombre IN ('Perdido','No interesado')
                            OR e.nombre ILIKE '%%perdid%%'
+                           OR e.nombre ILIKE '%%desist%%'
                     )                                                              AS leads_perdidos,
                     COUNT(*) FILTER (
                         WHERE e.nombre ILIKE '%%cod%%'
                            OR e.nombre ILIKE '%%reserva%%'
+                           OR e.nombre ILIKE '%%separac%%'
                            OR e.nombre ILIKE '%%compromiso%%'
                     )                                                              AS cod,
                     ROUND(
@@ -144,6 +151,7 @@ def resumen(
                             WHERE e.nombre ILIKE '%%matr%%'
                                OR e.nombre ILIKE '%%ganad%%'
                                OR e.nombre ILIKE '%%cierr%%'
+                               OR e.nombre ILIKE '%%venta concretad%%'
                         ) / NULLIF(COUNT(*),0),
                         2
                     )                                                              AS tasa_conversion_pct
@@ -180,28 +188,32 @@ def resumen(
                     COUNT(*) FILTER (WHERE e.nombre = 'Calificado')                AS calificados,
                     COUNT(*) FILTER (WHERE UPPER(COALESCE(l.calidad, '')) = 'TIBIO') AS tibios,
                     COUNT(*) FILTER (WHERE UPPER(COALESCE(l.calidad, '')) = 'CALIENTE') AS calientes,
-                    COUNT(*) FILTER (WHERE e.nombre = 'En negociación')            AS en_negociacion,
-                    COUNT(*) FILTER (WHERE e.nombre ILIKE '%%seguimiento%%')       AS en_seguimiento,
+                    COUNT(*) FILTER (WHERE TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') = 'en negociacion') AS en_negociacion,
+                    COUNT(*) FILTER (WHERE e.nombre ILIKE '%%seguimiento%%' OR TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') IN ('en negociacion', 'visita a proyecto')) AS en_seguimiento,
                     COUNT(*) FILTER (WHERE e.nombre = 'Ganado')                    AS leads_ganados,
                     COUNT(*) FILTER (WHERE e.nombre = 'Ganado')                    AS ganados,
                     COUNT(*) FILTER (
                         WHERE e.nombre ILIKE '%%matr%%'
                            OR e.nombre ILIKE '%%ganad%%'
                            OR e.nombre ILIKE '%%cierr%%'
+                           OR e.nombre ILIKE '%%venta concretad%%'
                     )                                                              AS matriculas,
                     COUNT(*) FILTER (
                         WHERE e.nombre = 'Perdido'
                            OR e.nombre ILIKE '%%perdid%%'
+                           OR e.nombre ILIKE '%%desist%%'
                            OR e.nombre = 'No interesado'
                            OR e.nombre ILIKE '%%no inter%%'
                     )                                                              AS perdidos,
                     COUNT(*) FILTER (
                         WHERE e.nombre IN ('Perdido','No interesado')
                            OR e.nombre ILIKE '%%perdid%%'
+                           OR e.nombre ILIKE '%%desist%%'
                     )                                                              AS leads_perdidos,
                     COUNT(*) FILTER (
                         WHERE e.nombre ILIKE '%%cod%%'
                            OR e.nombre ILIKE '%%reserva%%'
+                           OR e.nombre ILIKE '%%separac%%'
                            OR e.nombre ILIKE '%%compromiso%%'
                     )                                                              AS cod,
                     ROUND(
@@ -209,6 +221,7 @@ def resumen(
                             WHERE e.nombre ILIKE '%%matr%%'
                                OR e.nombre ILIKE '%%ganad%%'
                                OR e.nombre ILIKE '%%cierr%%'
+                               OR e.nombre ILIKE '%%venta concretad%%'
                         ) / NULLIF(COUNT(*),0),
                         2
                     )                                                              AS tasa_conversion_pct
@@ -656,12 +669,14 @@ def leads_por_asesor(
                         WHERE e.nombre ILIKE '%%matr%%'
                            OR e.nombre ILIKE '%%ganad%%'
                            OR e.nombre ILIKE '%%cierr%%'
+                           OR e.nombre ILIKE '%%venta concretad%%'
                     )::int                                                             AS matriculas,
                     COALESCE(ROUND(
                         100.0 * COUNT(l.id) FILTER (
                             WHERE e.nombre ILIKE '%%matr%%'
                                OR e.nombre ILIKE '%%ganad%%'
                                OR e.nombre ILIKE '%%cierr%%'
+                               OR e.nombre ILIKE '%%venta concretad%%'
                         ) / NULLIF(COUNT(l.id), 0), 1
                     ), 0)::float                                                       AS tasa_conversion
                 FROM auth.users u
@@ -993,7 +1008,9 @@ def alertas_summary(current_user: TokenData = Depends(get_current_user)):
                     )::int AS sla_15m,
                     COUNT(*) FILTER (
                         WHERE l.estado_id NOT IN (
-                            SELECT id FROM crm.estados_lead WHERE nombre IN ('Ganado', 'Perdido', 'No interesado', 'Histórico', 'Historico')
+                            SELECT id FROM crm.estados_lead
+                            WHERE es_final = TRUE
+                               OR nombre IN ('Ganado', 'Perdido', 'No interesado', 'Histórico', 'Historico')
                         )
                         AND (
                             (

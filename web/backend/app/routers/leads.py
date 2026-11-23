@@ -1074,18 +1074,20 @@ def create_lead(
             est_row = cur.fetchone()
             if est_row:
                 est_norm = (est_row["nombre"] or "").lower()
-                if any(w in est_norm for w in ["matr", "ganad", "cierr"]):
+                for _s, _d in (("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u")):
+                    est_norm = est_norm.replace(_s, _d)
+                if any(w in est_norm for w in ["matr", "ganad", "cierr", "venta concretad"]):
                     if not data.tipo_cierre or not data.tipo_cierre.strip():
                         raise HTTPException(
                             status_code=400,
-                            detail="Debe ingresar el tipo de cierre de forma obligatoria para el estado Matrícula.",
+                            detail="Debe ingresar el tipo de cierre de forma obligatoria para este estado.",
                         )
                     if data.tipo_cierre.strip() == "Con segunda voz" and (not data.segunda_voz or not data.segunda_voz.strip()):
                         raise HTTPException(
                             status_code=400,
                             detail="Debe indicar la persona que realizó la segunda voz.",
                         )
-                elif any(w in est_norm for w in ["perdid", "no interesado"]):
+                elif any(w in est_norm for w in ["perdid", "no interesad", "desist", "descart"]):
                     if not data.motivo_perdida or not data.motivo_perdida.strip():
                         raise HTTPException(
                             status_code=400,
@@ -1096,7 +1098,7 @@ def create_lead(
                             status_code=400,
                             detail="Debe especificar el motivo de pérdida.",
                         )
-                elif "seguimiento" in est_norm:
+                elif any(w in est_norm for w in ["seguimiento", "negociacion", "visita"]):
                     if not data.fecha_proxima_gestion or not data.fecha_proxima_gestion.strip():
                         from datetime import datetime, timedelta, timezone
                         data.fecha_proxima_gestion = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
@@ -1446,19 +1448,21 @@ def update_lead(lead_id: int, data: LeadUpdate, current_user: TokenData = Depend
 
             if est_row:
                 est_norm = (est_row["nombre"] or "").lower()
-                is_matr = any(w in est_norm for w in ["matr", "ganad", "cierr"])
-                is_perd = any(w in est_norm for w in ["perdid", "no interesado"])
-                is_seg = "seguimiento" in est_norm
+                for _s, _d in (("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u")):
+                    est_norm = est_norm.replace(_s, _d)
+                is_matr = any(w in est_norm for w in ["matr", "ganad", "cierr", "venta concretad"])
+                is_perd = any(w in est_norm for w in ["perdid", "no interesad", "desist", "descart"])
+                is_seg = any(w in est_norm for w in ["seguimiento", "negociacion", "visita"])
                 is_opor = "oportunidad" in est_norm or "futur" in est_norm
 
                 if is_matr:
-                    # Si se cambia al estado matrícula o si se está enviando/editando tipo_cierre
+                    # Si se cambia al estado cierre/ganado o si se está enviando/editando tipo_cierre
                     if target_estado_id or "tipo_cierre" in fields:
                         tc = fields.get("tipo_cierre")
                         if not tc or not str(tc).strip():
                             raise HTTPException(
                                 status_code=400,
-                                detail="Debe ingresar el tipo de cierre de forma obligatoria para el estado Matrícula.",
+                                detail="Debe ingresar el tipo de cierre de forma obligatoria para este estado.",
                             )
                         if str(tc).strip() == "Con segunda voz" and (not fields.get("segunda_voz") or not str(fields.get("segunda_voz")).strip()):
                             raise HTTPException(
@@ -1985,10 +1989,12 @@ def update_estado(lead_id: int, data: EstadoUpdate, current_user: TokenData = De
                 raise HTTPException(status_code=404, detail="Estado no encontrado")
             estado_nombre = estado_row["nombre"] or ""
             est_norm = estado_nombre.lower()
+            for _s, _d in (("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u")):
+                est_norm = est_norm.replace(_s, _d)
 
-            is_matricula = any(w in est_norm for w in ["matr", "ganad", "cierr"])
-            is_perdido = any(w in est_norm for w in ["perdid", "no interesado"])
-            is_seguimiento = "seguimiento" in est_norm
+            is_matricula = any(w in est_norm for w in ["matr", "ganad", "cierr", "venta concretad"])
+            is_perdido = any(w in est_norm for w in ["perdid", "no interesad", "desist", "descart"])
+            is_seguimiento = any(w in est_norm for w in ["seguimiento", "negociacion", "visita"])
             is_oportunidad = "oportunidad" in est_norm or "futur" in est_norm
 
             if is_matricula:

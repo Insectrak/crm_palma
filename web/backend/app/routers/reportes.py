@@ -41,7 +41,7 @@ def _team_user_filter(supervisor_id: Optional[str], user_alias: str = "u") -> tu
         f"AND ("
         f"{user_alias}.id = %s::uuid OR "
         f"{user_alias}.id IN (SELECT eq.asesor_id FROM crm.equipos eq WHERE eq.supervisor_id = %s::uuid AND eq.activo = TRUE) OR "
-        f"{user_alias}.id IN (SELECT l.asesor_id FROM crm.leads l WHERE l.supervisor_id = %s::uuid AND l.asesor_id IS NOT NULL AND (l.estado_id IN (SELECT id FROM crm.estados_lead WHERE nombre ILIKE '%%matr%%' OR nombre ILIKE '%%ganad%%' OR nombre ILIKE '%%cierr%%') OR l.tipo_cierre IS NOT NULL))"
+        f"{user_alias}.id IN (SELECT l.asesor_id FROM crm.leads l WHERE l.supervisor_id = %s::uuid AND l.asesor_id IS NOT NULL AND (l.estado_id IN (SELECT id FROM crm.estados_lead WHERE nombre ILIKE '%%matr%%' OR nombre ILIKE '%%ganad%%' OR nombre ILIKE '%%cierr%%' OR nombre ILIKE '%%reserv%%' OR nombre ILIKE '%%separac%%' OR nombre ILIKE '%%venta concretad%%') OR l.tipo_cierre IS NOT NULL))"
         f")"
     )
     return clause, [sup_id, sup_id, sup_id]
@@ -134,7 +134,7 @@ def por_asesor(
             "         )) AND eq.activo = TRUE) "
             "OR u.id = %s::uuid "
             "OR u.id IN (SELECT s.id FROM auth.users s WHERE s.supervisor_jefe_id = %s::uuid AND s.is_active = TRUE AND s.role = 'supervisor') "
-            "OR u.id IN (SELECT l.asesor_id FROM crm.leads l WHERE (l.supervisor_id = %s::uuid OR l.supervisor_id IN (SELECT s.id FROM auth.users s WHERE s.supervisor_jefe_id = %s::uuid AND s.is_active = TRUE AND s.role = 'supervisor')) AND l.asesor_id IS NOT NULL AND (l.estado_id IN (SELECT id FROM crm.estados_lead WHERE nombre ILIKE '%%matr%%' OR nombre ILIKE '%%ganad%%' OR nombre ILIKE '%%cierr%%') OR l.tipo_cierre IS NOT NULL))"
+            "OR u.id IN (SELECT l.asesor_id FROM crm.leads l WHERE (l.supervisor_id = %s::uuid OR l.supervisor_id IN (SELECT s.id FROM auth.users s WHERE s.supervisor_jefe_id = %s::uuid AND s.is_active = TRUE AND s.role = 'supervisor')) AND l.asesor_id IS NOT NULL AND (l.estado_id IN (SELECT id FROM crm.estados_lead WHERE nombre ILIKE '%%matr%%' OR nombre ILIKE '%%ganad%%' OR nombre ILIKE '%%cierr%%' OR nombre ILIKE '%%reserv%%' OR nombre ILIKE '%%separac%%' OR nombre ILIKE '%%venta concretad%%') OR l.tipo_cierre IS NOT NULL))"
             ")"
         )
         params = [
@@ -159,13 +159,13 @@ def por_asesor(
                     COUNT(l.id)                                               AS total_leads,
                     COUNT(l.id) FILTER (WHERE lc.contactado IS NOT NULL)      AS leads_contactados,
                     COUNT(l.id) FILTER (WHERE e.nombre = 'Calificado')        AS leads_calificados,
-                    COUNT(l.id) FILTER (WHERE e.nombre = 'En negociación')    AS leads_en_negociacion,
+                    COUNT(l.id) FILTER (WHERE TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') = 'en negociacion')    AS leads_en_negociacion,
                     COUNT(l.id) FILTER (
                         WHERE e.nombre ILIKE '%%matr%%'
                            OR e.nombre ILIKE '%%ganad%%'
                            OR e.nombre ILIKE '%%cierr%%'
                     )                                                         AS leads_ganados,
-                    COUNT(l.id) FILTER (WHERE e.nombre IN ('No interesado','Perdido'))
+                    COUNT(l.id) FILTER (WHERE e.nombre IN ('No interesado','Perdido') OR e.nombre ILIKE '%%desist%%')
                                                                               AS leads_perdidos,
                     COUNT(l.id) FILTER (WHERE lc.contactado IS NULL)          AS leads_sin_contactar,
                     ROUND(
@@ -278,13 +278,13 @@ def por_fuente(
                     COUNT(l.id)                                               AS total_leads,
                     COUNT(l.id) FILTER (WHERE lc.contactado IS NOT NULL)      AS leads_contactados,
                     COUNT(l.id) FILTER (WHERE e.nombre = 'Calificado')        AS leads_calificados,
-                    COUNT(l.id) FILTER (WHERE e.nombre = 'En negociación')    AS leads_en_negociacion,
+                    COUNT(l.id) FILTER (WHERE TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') = 'en negociacion')    AS leads_en_negociacion,
                     COUNT(l.id) FILTER (
                         WHERE e.nombre ILIKE '%%matr%%'
                            OR e.nombre ILIKE '%%ganad%%'
                            OR e.nombre ILIKE '%%cierr%%'
                     )                                                         AS leads_ganados,
-                    COUNT(l.id) FILTER (WHERE e.nombre IN ('No interesado','Perdido'))
+                    COUNT(l.id) FILTER (WHERE e.nombre IN ('No interesado','Perdido') OR e.nombre ILIKE '%%desist%%')
                                                                               AS leads_perdidos,
                     ROUND(
                         COUNT(l.id) FILTER (
@@ -669,21 +669,22 @@ def campanas(
                     COUNT(l.id)                                          AS total_leads,
                     COUNT(l.id) FILTER (WHERE pc.fecha_primer_contacto IS NOT NULL)
                                                                          AS leads_contactados,
-                    COUNT(l.id) FILTER (WHERE e.nombre IN (
-                        'Calificado','En negociación','Ganado'))          AS leads_calificados,
+                    COUNT(l.id) FILTER (WHERE TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') IN (
+                        'calificado','en negociacion','ganado','reserva','visita a proyecto')) AS leads_calificados,
                     COUNT(l.id) FILTER (
                         WHERE e.nombre ILIKE '%%matr%%'
                            OR e.nombre ILIKE '%%ganad%%'
                            OR e.nombre ILIKE '%%cierr%%'
+                           OR e.nombre ILIKE '%%venta concretad%%'
                     )                                                    AS leads_ganados,
-                    COUNT(l.id) FILTER (WHERE e.nombre IN ('No interesado','Perdido'))
+                    COUNT(l.id) FILTER (WHERE e.nombre IN ('No interesado','Perdido') OR e.nombre ILIKE '%%desist%%')
                                                                          AS leads_perdidos,
                     ROUND(
                         COUNT(l.id) FILTER (WHERE pc.fecha_primer_contacto IS NOT NULL) * 100.0
                         / NULLIF(COUNT(l.id), 0), 1)                     AS pct_contactados,
                     ROUND(
-                        COUNT(l.id) FILTER (WHERE e.nombre IN (
-                            'Calificado','En negociación','Ganado')
+                        COUNT(l.id) FILTER (WHERE TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') IN (
+                            'calificado','en negociacion','ganado','reserva','visita a proyecto')
                             OR e.nombre ILIKE '%%matr%%') * 100.0
                         / NULLIF(COUNT(l.id), 0), 1)                     AS pct_calificados,
                     ROUND(
@@ -1034,7 +1035,7 @@ def ranking_asesores(
                            OR e.nombre ILIKE '%%cierr%%'
                     )                                                            AS leads_ganados,
                     COUNT(l.id) FILTER (WHERE e.nombre = 'Calificado')           AS leads_calificados,
-                    COUNT(l.id) FILTER (WHERE e.nombre = 'En negociación')       AS leads_en_negociacion,
+                    COUNT(l.id) FILTER (WHERE TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') = 'en negociacion')       AS leads_en_negociacion,
                     COUNT(l.id) FILTER (WHERE lc.contactado IS NOT NULL)         AS leads_contactados,
                     COUNT(l.id) FILTER (WHERE lc.contactado IS NULL)             AS leads_sin_contactar,
                     ROUND(
@@ -1219,7 +1220,7 @@ def ranking_equipos(
                            OR e.nombre ILIKE '%%cierr%%'
                     )                                                           AS leads_ganados,
                     COUNT(l.id) FILTER (WHERE e.nombre = 'Calificado')          AS leads_calificados,
-                    COUNT(l.id) FILTER (WHERE e.nombre = 'En negociación')      AS leads_en_negociacion,
+                    COUNT(l.id) FILTER (WHERE TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') = 'en negociacion')      AS leads_en_negociacion,
                     COUNT(l.id) FILTER (WHERE lc.contactado IS NOT NULL)        AS leads_contactados,
                     COUNT(l.id) FILTER (WHERE lc.contactado IS NULL)            AS leads_sin_contactar,
                     ROUND(
@@ -1643,7 +1644,7 @@ def exportar(
             rows    = data.get("ranking", [])
             titulo  = f"Ranking Equipos ({m_val.capitalize()})"
             headers = ["Posición", "Equipo / Supervisor", "Asesores", "Total Leads", "Contactados",
-                       "Calificados", "En negociación", "Matrículas", "Conv. %", "Contactabilidad %"]
+                       "Calificados", "En negociación", "Ventas", "Conv. %", "Contactabilidad %"]
             keys    = ["posicion", "supervisor_nombre", "num_asesores", "total_leads", "leads_contactados",
                        "leads_calificados", "leads_en_negociacion", "leads_ganados", "tasa_conversion_pct", "tasa_contactabilidad_pct"]
         else:
@@ -1653,7 +1654,7 @@ def exportar(
                 rows = [r for r in rows if (r.get("rol") or "asesor") == rf_val]
             titulo  = f"Ranking Asesores ({m_val.capitalize()})"
             headers = ["Posición", "Asesor", "Rol", "Total Leads", "Contactados",
-                       "Calificados", "En negociación", "Matrículas", "Conv. %", "Contactabilidad %"]
+                       "Calificados", "En negociación", "Ventas", "Conv. %", "Contactabilidad %"]
             keys    = ["posicion", "nombre_completo", "rol", "total_leads", "leads_contactados",
                        "leads_calificados", "leads_en_negociacion", "leads_ganados", "tasa_conversion_pct", "tasa_contactabilidad_pct"]
     elif tipo == "asesores":
@@ -1661,7 +1662,7 @@ def exportar(
         rows    = data["rows"]
         titulo  = "Reporte por Asesor"
         headers = ["Asesor", "Total Leads", "Contactados", "Calificados",
-                   "En negociación", "Matrículas", "Perdidos", "Sin contactar",
+                   "En negociación", "Ventas", "Perdidos", "Sin contactar",
                    "Conv. %", "Contactabilidad %"]
         keys    = ["nombre_completo", "total_leads", "leads_contactados", "leads_calificados",
                    "leads_en_negociacion", "leads_ganados", "leads_perdidos", "leads_sin_contactar",
@@ -1693,7 +1694,7 @@ def exportar(
         rows    = data["rows"]
         titulo  = "Rendimiento de Campañas"
         headers = ["Campaña", "Fuente", "Total Leads", "Contactados", "Calificados",
-                   "Matrículas", "Perdidos", "% Contactados", "% Calificados", "% Matrículas",
+                   "Ventas", "Perdidos", "% Contactados", "% Calificados", "% Ventas",
                    "Horas 1er Contacto"]
         keys    = ["campana", "fuente", "total_leads", "leads_contactados", "leads_calificados",
                    "leads_ganados", "leads_perdidos", "pct_contactados", "pct_calificados",
@@ -1703,7 +1704,7 @@ def exportar(
         rows    = data["rows"]
         titulo  = "Reporte por Plataforma"
         headers = ["Plataforma", "Total Leads", "Contactados", "Calificados",
-                   "En negociación", "Matrículas", "Perdidos", "Conv. %", "Contactabilidad %"]
+                   "En negociación", "Ventas", "Perdidos", "Conv. %", "Contactabilidad %"]
         keys    = ["fuente", "total_leads", "leads_contactados", "leads_calificados",
                    "leads_en_negociacion", "leads_ganados", "leads_perdidos",
                    "tasa_conversion_pct", "tasa_contactabilidad_pct"]
@@ -1880,9 +1881,9 @@ def leads_detalle(
     elif t_metrica in ("calificados", "calificado"):
         where_clauses.append("e.nombre = 'Calificado'")
     elif t_metrica in ("negociacion", "en_negociacion", "en negociacion"):
-        where_clauses.append("e.nombre = 'En negociación'")
+        where_clauses.append("TRANSLATE(LOWER(TRIM(e.nombre)), 'áéíóúüñ', 'aeiouun') = 'en negociacion'")
     elif t_metrica in ("perdidos", "perdido"):
-        where_clauses.append("(e.nombre IN ('No interesado','Perdido') OR e.nombre ILIKE '%%perdid%%' OR e.nombre ILIKE '%%no interesado%%')")
+        where_clauses.append("(e.nombre IN ('No interesado','Perdido') OR e.nombre ILIKE '%%perdid%%' OR e.nombre ILIKE '%%desist%%' OR e.nombre ILIKE '%%no interesado%%')")
     elif t_metrica in ("sin_contactar", "sin contactar", "nuevos", "nuevo"):
         where_clauses.append(
             "(NOT EXISTS (SELECT 1 FROM crm.contactos c WHERE c.lead_id = l.id AND c.tipo_contacto NOT IN ('cambio_estado', 'cambio_fuente', 'sistema', 'reasignacion')) "

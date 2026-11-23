@@ -47,6 +47,10 @@ FIELD_LABELS: dict[str, str] = {
     "segunda_voz": "Segunda voz",
     "gestion_especial_admin": "Gestión especial Administración",
     "activo": "Estado en sistema (Activo / Papelera)",
+    "cita_evento": "Cita / Visita registrada",
+    "cita_estado_id": "Estado de cita",
+    "fecha_cita": "Fecha de cita",
+    "tipo_cita": "Tipo de cita / visita",
 }
 
 FICHA_TECNICA_KEYS: dict[str, str] = {
@@ -410,6 +414,156 @@ def record_reassignment(
         valor_nuevo=f"{new_name} ({motivo_label})",
         origen="reasignacion",
     )
+
+
+def _resolve_cita_estado(cur, cita_estado_id: Any) -> tuple[Optional[str], Optional[str]]:
+    """Obtiene (codigo, nombre) de crm.cita_estados de forma segura."""
+    if not cita_estado_id:
+        return None, None
+    try:
+        cur.execute("SELECT codigo, nombre FROM crm.cita_estados WHERE id = %s", (int(cita_estado_id),))
+        row = cur.fetchone()
+        if isinstance(row, dict):
+            return row.get("codigo"), row.get("nombre")
+        if row:
+            return row[0], row[1]
+    except Exception:
+        pass
+    return None, str(cita_estado_id)
+
+
+def _format_cita_dt_str(val: Any) -> Optional[str]:
+    """Formatea un timestamp de cita a texto comparable legible en hora Lima."""
+    if val is None:
+        return None
+    if hasattr(val, "strftime"):
+        try:
+            from zoneinfo import ZoneInfo
+            dt = val.astimezone(ZoneInfo("America/Lima")) if val.tzinfo else val
+            return dt.strftime("%Y-%m-%d %H:%M")
+        except Exception:
+            return str(val)[:16]
+    s = str(val).strip()
+    if not s:
+        return None
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        cleaned = s.replace(" ", "T")
+        if cleaned.endswith("Z"):
+            cleaned = cleaned[:-1] + "+00:00"
+        dt = datetime.fromisoformat(cleaned)
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(ZoneInfo("America/Lima"))
+        return dt.strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        return s[:16]
+
+
+def record_cita_event(
+    cur,
+    lead_id: int,
+    user: Any,
+    *,
+    action: str,
+    contacto_id: Optional[int] = None,
+    old_fecha_cita: Any = None,
+    new_fecha_cita: Any = None,
+    old_cita_estado_id: Any = None,
+    new_cita_estado_id: Any = None,
+    old_tipo_cita: Optional[str] = None,
+    new_tipo_cita: Optional[str] = None,
+    origen: str = "agenda_cita",
+) -> None:
+    """Registra creación o cambios de evolución en una cita (fecha, estado de cita, modalidad)."""
+    try:
+        if action == "create":
+            ce_cod, ce_nom = _resolve_cita_estado(cur, new_cita_estado_id)
+            fecha_txt = _format_cita_dt_str(new_fecha_cita) or "Sin fecha"
+            tipo_txt = _normalize_str(new_tipo_cita) or "Cita"
+            estado_txt = ce_nom or "Pendiente"
+            record_field_change(
+                cur,
+                lead_id=lead_id,
+                user=user,
+                campo="cita_evento",
+                campo_label="Cita / Visita registrada",
+                valor_anterior="—",
+                valor_nuevo=f"{tipo_txt} · {fecha_txt} ({estado_txt})",
+                origen=origen,
+                datos_extra={
+                    "accion": "creada",
+                    "contacto_id": contacto_id,
+                    "fecha_cita": fecha_txt,
+                    "tipo_cita": tipo_txt,
+                    "cita_estado_id": int(new_cita_estado_id) if new_cita_estado_id else None,
+                    "cita_estado_codigo": ce_cod or "pendiente",
+                },
+            )
+            return
+
+        # action == "update"
+        if new_cita_estado_id is not None and str(new_cita_estado_id) != str(old_cita_estado_id or ""):
+            old_cod, old_nom = _resolve_cita_estado(cur, old_cita_estado_id)
+            new_cod, new_nom = _resolve_cita_estado(cur, new_cita_estado_id)
+            if (old_nom or "Sin estado") != (new_nom or str(new_cita_estado_id)):
+                record_field_change(
+                    cur,
+                    lead_id=lead_id,
+                    user=user,
+                    campo="cita_estado_id",
+                    campo_label="Estado de cita",
+                    valor_anterior=old_nom or "Sin estado",
+                    valor_nuevo=new_nom or str(new_cita_estado_id),
+                    origen=origen,
+                    datos_extra={
+                        "accion": "estado_cita",
+                        "contacto_id": contacto_id,
+                        "old_codigo": old_cod,
+                        "new_codigo": new_cod,
+                        "fecha_cita": _format_cita_dt_str(new_fecha_cita or old_fecha_cita),
+                    },
+                )
+
+        if new_fecha_cita is not None:
+            old_f = _format_cita_dt_str(old_fecha_cita)
+            new_f = _format_cita_dt_str(new_fecha_cita)
+            if old_f != new_f and new_f is not None:
+                record_field_change(
+                    cur,
+                    lead_id=lead_id,
+                    user=user,
+                    campo="fecha_cita",
+                    campo_label="Fecha de cita",
+                    valor_anterior=old_f or "Sin fecha",
+                    valor_nuevo=new_f,
+                    origen=origen,
+                    datos_extra={
+                        "accion": "reprogramacion_fecha",
+                        "contacto_id": contacto_id,
+                    },
+                )
+
+        if new_tipo_cita is not None:
+            old_t = _normalize_str(old_tipo_cita)
+            new_t = _normalize_str(new_tipo_cita)
+            if old_t != new_t:
+                record_field_change(
+                    cur,
+                    lead_id=lead_id,
+                    user=user,
+                    campo="tipo_cita",
+                    campo_label="Tipo de cita / visita",
+                    valor_anterior=old_t or "—",
+                    valor_nuevo=new_t or "—",
+                    origen=origen,
+                    datos_extra={
+                        "accion": "tipo_cita",
+                        "contacto_id": contacto_id,
+                    },
+                )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[lead_history] error registrando evento de cita lead=%s: %s", lead_id, exc)
 
 
 def get_lead_history(cur, lead_id: int, limit: int = 150, offset: int = 0) -> dict:

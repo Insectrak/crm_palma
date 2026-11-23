@@ -263,8 +263,8 @@ def get_resumen_leads_historicos_supervisor(
                 COUNT(CASE WHEN tipo_ubicacion = 'otro_asesor' THEN 1 END)::int AS reasignados_otro_equipo,
                 COUNT(CASE WHEN tipo_ubicacion = 'en_cola' THEN 1 END)::int AS en_cola,
                 COUNT(CASE WHEN tipo_ubicacion = 'inactivo' THEN 1 END)::int AS inactivos,
-                COUNT(CASE WHEN LOWER(estado_nombre) LIKE '%%matr%%' OR LOWER(estado_nombre) LIKE '%%ganad%%' THEN 1 END)::int AS matriculados,
-                COUNT(CASE WHEN LOWER(estado_nombre) LIKE '%%perdid%%' OR LOWER(estado_nombre) LIKE '%%no califica%%' THEN 1 END)::int AS perdidos
+                COUNT(CASE WHEN LOWER(estado_nombre) LIKE '%%matr%%' OR LOWER(estado_nombre) LIKE '%%ganad%%' OR LOWER(estado_nombre) LIKE '%%cierr%%' OR LOWER(estado_nombre) LIKE '%%reserv%%' OR LOWER(estado_nombre) LIKE '%%separac%%' OR LOWER(estado_nombre) LIKE '%%venta concretad%%' THEN 1 END)::int AS matriculados,
+                COUNT(CASE WHEN LOWER(estado_nombre) LIKE '%%perdid%%' OR LOWER(estado_nombre) LIKE '%%desist%%' OR LOWER(estado_nombre) LIKE '%%no interesad%%' OR LOWER(estado_nombre) LIKE '%%descart%%' OR LOWER(estado_nombre) LIKE '%%no califica%%' THEN 1 END)::int AS perdidos
             FROM classified_leads;
             """
             cur.execute(kpi_sql, [target_sup_id] + filter_params)
@@ -511,7 +511,7 @@ def get_comparativa_supervisores(
                         COUNT(CASE WHEN tipo_ubicacion = 'bolsa_tmk' THEN 1 END)::int AS en_bolsa_tmk,
                         COUNT(CASE WHEN tipo_ubicacion = 'otro_asesor' THEN 1 END)::int AS reasignados_otro_equipo,
                         COUNT(CASE WHEN tipo_ubicacion = 'en_cola' THEN 1 END)::int AS en_cola,
-                        COUNT(CASE WHEN LOWER(estado_nombre) LIKE '%%matr%%' OR LOWER(estado_nombre) LIKE '%%ganad%%' THEN 1 END)::int AS matriculados
+                        COUNT(CASE WHEN LOWER(estado_nombre) LIKE '%%matr%%' OR LOWER(estado_nombre) LIKE '%%ganad%%' OR LOWER(estado_nombre) LIKE '%%cierr%%' OR LOWER(estado_nombre) LIKE '%%reserv%%' OR LOWER(estado_nombre) LIKE '%%separac%%' OR LOWER(estado_nombre) LIKE '%%venta concretad%%' THEN 1 END)::int AS matriculados
                     FROM classified_leads
                 ) m
                 ORDER BY total_recibidos DESC, sb.nombre;

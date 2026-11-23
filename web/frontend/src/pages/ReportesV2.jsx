@@ -342,7 +342,7 @@ function ReporteFunnel({ data }) {
                   <th className="text-right">Total</th>
                   <th className="text-right" title="% de leads con al menos 1 contacto real. Mide si el teléfono/email es válido.">Contacto</th>
                   <th className="text-right" title="% de leads que avanzaron a un estado de calidad (orden ≥ 3, no perdidos). Mide interés real.">Calificación</th>
-                  <th className="text-right" title="% de leads matriculados (cerrados).">Cierre</th>
+                  <th className="text-right" title="% de leads vendidos (cerrados).">Cierre</th>
                 </tr>
               </thead>
               <tbody>
@@ -426,7 +426,7 @@ function ReporteControl({ data }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-white border border-gray-100 rounded-2xl p-4">
-          <h3 className="font-semibold text-gray-800 mb-3">Ranking asesores (por matrículas)</h3>
+          <h3 className="font-semibold text-gray-800 mb-3">Ranking asesores (por ventas)</h3>
           {ranking.length === 0 ? (
             <p className="text-sm text-gray-400">Sin datos</p>
           ) : (
@@ -435,7 +435,7 @@ function ReporteControl({ data }) {
                 <tr>
                   <th className="text-left py-2">Asesor</th>
                   <th className="text-right">Leads</th>
-                  <th className="text-right">Matrículas</th>
+                  <th className="text-right">Ventas</th>
                   <th className="text-right">Tasa</th>
                 </tr>
               </thead>
@@ -471,7 +471,7 @@ function ReporteControl({ data }) {
               <tr>
                 <th className="text-left py-2">Campana</th>
                 <th className="text-right">Leads</th>
-                <th className="text-right">Matrículas</th>
+                <th className="text-right">Ventas</th>
                 <th className="text-right">Calidad</th>
                 <th className="text-right">Tasa</th>
               </tr>

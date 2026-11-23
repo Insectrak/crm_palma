@@ -1117,14 +1117,16 @@ function EditContactoForm({ leadId, contacto, tipos, tiposCita = [], resultados,
  *   - resto                                                 → null
  */
 function suggestNextEstadoId(currentEstadoNombre, resultado, estadoCatalog) {
-  const finals = new Set(['ganado', 'perdido', 'no interesado', 'histórico', 'historico'])
-  const cur = (currentEstadoNombre || '').toLowerCase()
+  const normTxt = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  const finals = new Set(['ganado', 'perdido', 'no interesado', 'historico'])
+  const cur = normTxt(currentEstadoNombre)
   if (finals.has(cur)) return null
 
   const r = (resultado || '').toLowerCase()
   const findId = (nombre) => {
+    const target = normTxt(nombre)
     const found = estadoCatalog.find(
-      e => (e.nombre || '').toLowerCase() === nombre.toLowerCase()
+      e => normTxt(e.nombre) === target
     )
     return found ? found.id : null
   }
@@ -1765,7 +1767,7 @@ function EditLeadForm({ lead, estados, sedes = [], onSave, onCancel, canAssign, 
 
     if (isSeg) {
       if (!form.fecha_proxima_gestion || !form.fecha_proxima_gestion.trim()) {
-        errors.fecha_proxima_gestion = 'La fecha y hora de próxima gestión es obligatoria para el estado En seguimiento.'
+        errors.fecha_proxima_gestion = 'La fecha y hora de próxima gestión es obligatoria para este estado.'
       }
     }
 
@@ -2262,7 +2264,7 @@ function EditLeadForm({ lead, estados, sedes = [], onSave, onCancel, canAssign, 
             <div className="mt-3 p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-lg space-y-3 animate-in fade-in">
               <div className="flex items-center gap-2 text-emerald-950 font-semibold text-xs">
                 <UserCheck size={14} className="text-emerald-600 shrink-0" />
-                <span>Datos de Matrícula y Cierre</span>
+                <span>Datos de Venta y Cierre</span>
               </div>
 
               <div>
@@ -3453,9 +3455,9 @@ export default function LeadDetalle() {
                     )}
                   </DetailSection>
 
-                  {/* 🎓 Matrícula / Cierre — visible si tiene datos o está en estado de matrícula */}
+                  {/* Venta / Cierre — visible si tiene datos o está en estado de cierre/venta */}
                   {(lead.tipo_cierre || isEstadoMatricula(lead.estado_nombre)) && (
-                    <DetailSection title="Matrícula / Cierre" icon={<UserCheck size={12} className="text-gray-500" />} defaultOpen>
+                    <DetailSection title="Venta / Cierre" icon={<UserCheck size={12} className="text-gray-500" />} defaultOpen>
                       <DetailRow
                         label="Tipo de cierre"
                         value={lead.tipo_cierre}

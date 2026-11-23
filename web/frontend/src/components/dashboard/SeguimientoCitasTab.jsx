@@ -55,7 +55,7 @@ export default function SeguimientoCitasTab({
   const [error, setError] = useState(null)
 
   const [soloPeriodo, setSoloPeriodo] = useState(true)
-  const [situacionFilter, setSituacionFilter] = useState('todos') // 'todos' | 'actual' | 'historico'
+  const [situacionFilter, setSituacionFilter] = useState('todos') // 'todos' | 'actual' | 'historico' | 'mes_anterior'
   const [estadoFilter, setEstadoFilter] = useState('')
   const [asesorRowFilter, setAsesorRowFilter] = useState('')
   const [fuenteFilter, setFuenteFilter] = useState('')
@@ -109,7 +109,8 @@ export default function SeguimientoCitasTab({
   const filteredLeads = useMemo(() => {
     const q = search.trim().toLowerCase()
     return leads.filter((l) => {
-      if (situacionFilter !== 'todos' && l.situacion_cita !== situacionFilter) return false
+      if (situacionFilter === 'mes_anterior' && !l.es_mes_anterior) return false
+      if (situacionFilter !== 'todos' && situacionFilter !== 'mes_anterior' && l.situacion_cita !== situacionFilter) return false
       if (estadoFilter && l.estado_nombre !== estadoFilter) return false
       if (asesorRowFilter && (l.asesor_id || 'sin_asignar') !== asesorRowFilter) return false
       if (fuenteFilter && (l.fuente_nombre || 'Sin fuente') !== fuenteFilter) return false
@@ -604,6 +605,7 @@ export default function SeguimientoCitasTab({
                 { id: 'todos', label: `Todos (${leads.length})` },
                 { id: 'actual', label: `Estado cita (${resumen.con_estado_cita_actual ?? 0})` },
                 { id: 'historico', label: `Tuvieron cita (${resumen.tuvieron_estado_cita_antes ?? 0})` },
+                { id: 'mes_anterior', label: `Meses prev. (${leads.filter((x) => x.es_mes_anterior).length})` },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -662,11 +664,17 @@ export default function SeguimientoCitasTab({
                     className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors"
                   >
                     <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900 dark:text-white">
-                        {l.nombre || `Lead #${l.id}`}
+                      <div className="font-bold text-slate-900 dark:text-white flex flex-wrap items-center gap-1.5">
+                        <span>{l.nombre || `Lead #${l.id}`}</span>
+                        {l.es_mes_anterior && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800">
+                            {l.cohorte_mes}
+                          </span>
+                        )}
                       </div>
                       <div className="text-[11px] text-slate-400 font-mono">
                         {l.telefono || 'Sin teléfono'} · {l.fuente_nombre}
+                        {l.dias_maduracion !== null && l.dias_maduracion !== undefined ? ` · ${l.dias_maduracion}d mad.` : ''}
                       </div>
                     </td>
 

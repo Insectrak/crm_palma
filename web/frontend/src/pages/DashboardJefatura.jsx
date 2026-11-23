@@ -266,7 +266,7 @@ export default function DashboardJefatura() {
         {/* Matrículas y Verificadas */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            {periodo === 'todos' ? 'Matrículas Totales' : 'Matrículas del Período'}
+            {periodo === 'todos' ? 'Ventas Totales' : 'Ventas del Período'}
           </span>
           <div className="flex items-baseline gap-2 mt-1">
             <span className="text-2xl font-bold text-emerald-600">{mat.total ?? 0}</span>
@@ -354,7 +354,7 @@ export default function DashboardJefatura() {
                     fill="#6366F1"
                     radius={[4, 4, 0, 0]}
                   />
-                  <Bar dataKey="matriculas" name="Matrículas" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="matriculas" name="Ventas" fill="#10B981" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -387,7 +387,7 @@ export default function DashboardJefatura() {
                 <th className="py-3 px-3 text-center">SLA &le; 15m</th>
                 <th className="py-3 px-3 text-center">En Seguimiento</th>
                 <th className="py-3 px-3 text-center">Seg. Vencidos</th>
-                <th className="py-3 px-3 text-center">Matrículas</th>
+                <th className="py-3 px-3 text-center">Ventas</th>
                 <th className="py-3 px-3 text-center">Perdidos</th>
               </tr>
             </thead>

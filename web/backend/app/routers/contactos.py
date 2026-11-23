@@ -227,6 +227,23 @@ def create_contacto(
             row = cur.fetchone()
             new_id = row["id"]
 
+            # Registrar evento inicial de cita en historial de cambios
+            if es_cita or (data.fecha_cita and str(data.fecha_cita).strip()) or cita_estado_id_final is not None:
+                try:
+                    from app.services import lead_history_service
+                    lead_history_service.record_cita_event(
+                        cur,
+                        lead_id=lead_id,
+                        user=current_user,
+                        action="create",
+                        contacto_id=new_id,
+                        new_fecha_cita=data.fecha_cita,
+                        new_cita_estado_id=cita_estado_id_final,
+                        new_tipo_cita=data.tipo_cita or data.tipo_contacto,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("[contactos] historial cita create fallo lead=%s: %s", lead_id, exc)
+
             # Actualizar estado del lead si se indicó
             if data.nuevo_estado_id:
                 cur.execute(
@@ -280,6 +297,18 @@ def create_contacto(
                         """,
                         (lead_id, current_user.user_id, nota_cambio, prox_act),
                     )
+                    try:
+                        from app.services import lead_history_service
+                        lead_history_service.record_status_change(
+                            cur,
+                            lead_id=lead_id,
+                            user=current_user,
+                            old_estado_id=prev_estado_id,
+                            new_estado_id=data.nuevo_estado_id,
+                            origen="cambio_estado",
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug("[contactos] historial estado create fallo lead=%s: %s", lead_id, exc)
 
             if data.fecha_proxima_accion and str(data.fecha_proxima_accion).strip():
                 set_clause = "fecha_proxima_gestion = %s::timestamptz, updated_at = NOW()"
@@ -457,6 +486,30 @@ def update_contacto(
                 if not cur.fetchone():
                     raise HTTPException(status_code=404, detail="Contacto no encontrado")
 
+                # Registrar cambios de cita (estado_cita, fecha_cita, tipo_cita) en historial de cambios
+                if (
+                    data.cita_estado_id is not None
+                    or data.fecha_cita is not None
+                    or data.tipo_cita is not None
+                ):
+                    try:
+                        from app.services import lead_history_service
+                        lead_history_service.record_cita_event(
+                            cur,
+                            lead_id=lead_id,
+                            user=current_user,
+                            action="update",
+                            contacto_id=contacto_id,
+                            old_fecha_cita=contacto_existente.get("fecha_cita"),
+                            new_fecha_cita=data.fecha_cita,
+                            old_cita_estado_id=contacto_existente.get("cita_estado_id"),
+                            new_cita_estado_id=data.cita_estado_id,
+                            old_tipo_cita=contacto_existente.get("tipo_cita"),
+                            new_tipo_cita=data.tipo_cita,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug("[contactos] historial cita patch fallo lead=%s: %s", lead_id, exc)
+
                 # V096.8 — Reset de recordatorios al reprogramar la cita.
                 # Bug ID: bug visto en vivo 2026-06-24 sobre contacto 2822.
                 # Cuando un asesor reprograma una cita cuyo recordatorio ya
@@ -507,6 +560,18 @@ def update_contacto(
                         """,
                         (lead_id, current_user.user_id, f"Estado → {ne_nombre}"),
                     )
+                    try:
+                        from app.services import lead_history_service
+                        lead_history_service.record_status_change(
+                            cur,
+                            lead_id=lead_id,
+                            user=current_user,
+                            old_estado_id=prev_estado_id,
+                            new_estado_id=data.nuevo_estado_id,
+                            origen="cambio_estado",
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.debug("[contactos] historial estado patch fallo lead=%s: %s", lead_id, exc)
                 logger.info(
                     "[contactos] PATCH lead=%s nuevo_estado_id=%s aplicado al lead",
                     lead_id, data.nuevo_estado_id,

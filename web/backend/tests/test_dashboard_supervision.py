@@ -21,6 +21,7 @@ from app.routers.dashboard_supervision import (
     _strict_contacto_call_wa_sql,
     get_resumen_supervision_control,
     get_seguimiento_citas,
+    get_evolucion_citas,
 )
 from app.auth.schemas import TokenData
 
@@ -532,3 +533,227 @@ def test_cambio_estado_cita_sql_ignora_sufijos_y_motivos():
     assert "%" not in expr
     assert "\\(por [^)]*\\)" in expr
     assert "(cita|agendad)" in expr
+
+
+@pytest.mark.unit
+def test_evolucion_citas_rechaza_no_admin():
+    """Solo admin puede acceder al endpoint de evolución de citas y cohortes."""
+    sup_user = TokenData(user_id="2", email="s@test.com", role="supervisor")
+    asesor_user = TokenData(user_id="3", email="a@test.com", role="asesor")
+
+    with pytest.raises(HTTPException) as exc_sup:
+        get_evolucion_citas(current_user=sup_user)
+    with pytest.raises(HTTPException) as exc_ase:
+        get_evolucion_citas(current_user=asesor_user)
+
+    assert exc_sup.value.status_code == 403
+    assert exc_ase.value.status_code == 403
+
+
+@pytest.mark.unit
+def test_evolucion_citas_cuantifica_cohortes_tropiezos_y_cartera_antigua():
+    """Mide logros del período por cohorte (Setiembre vs actual), tropiezos recuperados y cartera antigua."""
+    admin_user = TokenData(user_id="admin-1", email="admin@test.com", role="admin")
+    sep_dt = datetime(2026, 9, 10, 15, 0, tzinfo=timezone.utc)
+    nov_dt = datetime(2026, 11, 20, 15, 0, tzinfo=timezone.utc)
+
+    evol_rows = [
+        # Caso Fabiola: lead ingresado en Setiembre que logra Separación en Noviembre tras reprogramación
+        {
+            "id": 201,
+            "nombre": "Cliente Setiembre Separacion",
+            "telefono": "999111000",
+            "created_at": sep_dt,
+            "updated_at": nov_dt,
+            "estado_id": 5,
+            "estado_nombre": "Reserva",
+            "estado_color": "#14B8A6",
+            "estado_es_final": False,
+            "fuente_nombre": "Meta Ads",
+            "sede_nombre": "Palma",
+            "asesor_id": "a-fab",
+            "asesor_nombre": "Fabiola Asesora",
+            "supervisor_id": "sup-1",
+            "supervisor_nombre": "Paola Cuadros",
+            "total_citas_reg": 2,
+            "primera_contacto_cv_at": datetime(2026, 9, 12, 16, 0, tzinfo=timezone.utc),
+            "tuvo_contacto_cv_periodo": False,
+            "tuvo_contacto_cv": True,
+            "tuvo_ce_tropiezo": True,
+            "tuvo_ce_completada": True,
+            "tuvo_ce_pendiente": False,
+            "ultimo_cambio_pos_at": nov_dt,
+            "tuvo_cambio_pos_periodo": True,
+            "gestiones_contacto_periodo": 2,
+            "tuvo_hist_cv_periodo": False,
+            "tuvo_hist_cv": True,
+            "primera_hist_cv_at": None,
+            "ultima_hist_pos_at": nov_dt,
+            "tuvo_hist_pos_periodo": True,
+            "tuvo_hist_tropiezo": True,
+            "tuvo_hist_completada": True,
+            "cambios_cita_hist": 2,
+            "ultima_fecha_cita": datetime(2026, 11, 18, 16, 0, tzinfo=timezone.utc),
+            "tipo_cita": "Visita a Proyecto",
+            "ultima_cita_estado_codigo": "completada",
+            "ultima_cita_estado_nombre": "Completada",
+            "ultima_cita_estado_color": "#10B981",
+            "cita_visita_en_periodo": True,
+            "cierre_en_periodo": True,
+        },
+        # Lead ingresado en Noviembre con Venta Concretada sin tropiezos
+        {
+            "id": 202,
+            "nombre": "Cliente Noviembre Venta",
+            "telefono": "999222000",
+            "created_at": datetime(2026, 11, 2, 15, 0, tzinfo=timezone.utc),
+            "updated_at": nov_dt,
+            "estado_id": 6,
+            "estado_nombre": "Ganado",
+            "estado_color": "#10B981",
+            "estado_es_final": True,
+            "fuente_nombre": "WhatsApp",
+            "sede_nombre": "Palma",
+            "asesor_id": "a-fab",
+            "asesor_nombre": "Fabiola Asesora",
+            "supervisor_id": "sup-1",
+            "supervisor_nombre": "Paola Cuadros",
+            "total_citas_reg": 1,
+            "primera_contacto_cv_at": datetime(2026, 11, 5, 16, 0, tzinfo=timezone.utc),
+            "tuvo_contacto_cv_periodo": True,
+            "tuvo_contacto_cv": True,
+            "tuvo_ce_tropiezo": False,
+            "tuvo_ce_completada": True,
+            "tuvo_ce_pendiente": False,
+            "ultimo_cambio_pos_at": nov_dt,
+            "tuvo_cambio_pos_periodo": True,
+            "gestiones_contacto_periodo": 1,
+            "tuvo_hist_cv_periodo": False,
+            "tuvo_hist_cv": True,
+            "primera_hist_cv_at": None,
+            "ultima_hist_pos_at": nov_dt,
+            "tuvo_hist_pos_periodo": True,
+            "tuvo_hist_tropiezo": False,
+            "tuvo_hist_completada": False,
+            "cambios_cita_hist": 0,
+            "ultima_fecha_cita": datetime(2026, 11, 5, 16, 0, tzinfo=timezone.utc),
+            "tipo_cita": "Cita",
+            "ultima_cita_estado_codigo": "completada",
+            "ultima_cita_estado_nombre": "Completada",
+            "ultima_cita_estado_color": "#10B981",
+            "cita_visita_en_periodo": True,
+            "cierre_en_periodo": True,
+        },
+    ]
+
+    cartera_rows = [
+        {
+            "id": 301,
+            "nombre": "Lead Octubre Seguimiento",
+            "telefono": "999333000",
+            "created_at": datetime(2026, 10, 15, 15, 0, tzinfo=timezone.utc),
+            "fecha_proxima_gestion": nov_dt,
+            "accion_proxima_gestion": "Confirmar visita sábado",
+            "estado_nombre": "En negociacion",
+            "estado_color": "#F59E0B",
+            "fuente_nombre": "TikTok",
+            "asesor_id": "a-fab",
+            "asesor_nombre": "Fabiola Asesora",
+            "supervisor_nombre": "Paola Cuadros",
+            "contactos_periodo": 2,
+            "llamadas_periodo": 3,
+            "ultimo_contacto_at": nov_dt,
+            "tuvo_intento_cita": True,
+        }
+    ]
+
+    mock_cur = MockCursor([
+        {"has_hist": True, "has_cita_estados": True, "has_llamadas": True},
+        evol_rows,
+        cartera_rows,
+    ])
+    mock_conn = MockConn(mock_cur)
+
+    @contextmanager
+    def _fake_get_db():
+        yield mock_conn
+
+    with patch("app.routers.dashboard_supervision.get_db", _fake_get_db):
+        res = get_evolucion_citas(
+            periodo="custom",
+            fecha_inicio="2026-11-01",
+            fecha_fin="2026-11-30",
+            sede_id=None,
+            supervisor_id=None,
+            asesor_id=None,
+            current_user=admin_user,
+        )
+
+    assert res["cohorte_corte_mes"] == "2026-11"
+    r = res["resumen"]
+    assert r["total_citas_visitas_periodo"] == 2
+    assert r["citas_visitas_mismo_mes"] == 1
+    assert r["citas_visitas_mes_anterior"] == 1
+    assert r["separaciones_mismo_mes"] == 0
+    assert r["separaciones_mes_anterior"] == 1
+    assert r["ventas_mismo_mes"] == 1
+    assert r["ventas_mes_anterior"] == 0
+    assert r["cierres_mes_anterior"] == 1
+    assert r["pct_cierres_mes_anterior"] == 50.0
+    assert r["pct_recuperacion_tropiezo"] == 100.0
+    assert r["cartera_antigua_total"] == 1
+    assert r["cartera_antigua_con_gestion_reciente"] == 1
+    assert r["cartera_antigua_con_intento_cita"] == 1
+
+    assert len(res["leads_recuperados"]) == 1
+    assert res["leads_recuperados"][0]["cohorte_mes"] == "2026-09"
+    assert res["leads_recuperados"][0]["recuperada_tropiezo"] is True
+    assert res["por_asesor"][0]["separaciones_meses_anteriores"] == 1
+    assert res["por_asesor"][0]["cartera_antigua_gestionada"] == 1
+
+
+@pytest.mark.unit
+def test_record_cita_event_registra_creacion_y_reprogramacion():
+    """Verifica que record_cita_event guarda trazabilidad de cita en lead_historial_cambios."""
+    from unittest.mock import MagicMock
+    from app.services import lead_history_service
+
+    cur = MagicMock()
+    # resolve_user_info, resolve_cita_estado(new), has_datos_extra
+    cur.fetchone.side_effect = [
+        {"nombre": "Paola", "email": "p@test.com", "role": "supervisor"},
+        {"codigo": "pendiente", "nombre": "Pendiente"},
+        (1,),
+        # update: resolve_cita_estado(old), resolve_cita_estado(new), resolve_user_info, has_datos_extra
+        {"codigo": "pendiente", "nombre": "Pendiente"},
+        {"codigo": "reprogramada", "nombre": "Reprogramada"},
+        {"nombre": "Paola", "email": "p@test.com", "role": "supervisor"},
+        (1,),
+    ]
+    user = TokenData(user_id="00000000-0000-0000-0000-000000000001", email="p@test.com", role="supervisor")
+
+    lead_history_service.record_cita_event(
+        cur,
+        lead_id=55,
+        user=user,
+        action="create",
+        contacto_id=10,
+        new_fecha_cita="2026-11-25T10:00:00-05:00",
+        new_cita_estado_id=1,
+        new_tipo_cita="Visita a Proyecto",
+    )
+    lead_history_service.record_cita_event(
+        cur,
+        lead_id=55,
+        user=user,
+        action="update",
+        contacto_id=10,
+        old_cita_estado_id=1,
+        new_cita_estado_id=3,
+    )
+
+    inserts = [
+        call for call in cur.execute.call_args_list
+        if "INSERT INTO crm.lead_historial_cambios" in str(call[0][0])
+    ]
+    assert len(inserts) == 2

@@ -3,7 +3,7 @@ import {
   History, Search, RefreshCw, User, Tag, ArrowRight, Clock,
   Shield, Bot, FileText, CheckCircle2, AlertCircle, Filter,
   Phone, Mail, MapPin, IdCard, Briefcase, Sparkles, SlidersHorizontal,
-  Layers, Megaphone, Check, GitMerge, ShieldCheck,
+  Layers, Megaphone, Check, GitMerge, ShieldCheck, Calendar,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,6 +61,7 @@ function getFieldIcon(campo) {
   if (norm.includes('dni') || norm.includes('documento')) return { Icon: IdCard, color: 'text-slate-700', bg: 'bg-slate-100 border-slate-200' }
   if (norm.includes('ciudad')) return { Icon: MapPin, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200' }
   if (norm.includes('trabajo')) return { Icon: Briefcase, color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' }
+  if (norm.includes('cita')) return { Icon: Calendar, color: 'text-indigo-600', bg: 'bg-indigo-50 border-indigo-200' }
   if (norm.includes('estado')) return { Icon: Tag, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200' }
   if (norm.includes('fuente')) return { Icon: Megaphone, color: 'text-teal-600', bg: 'bg-teal-50 border-teal-200' }
   if (norm.includes('asesor') || norm.includes('supervisor')) return { Icon: User, color: 'text-blue-600', bg: 'bg-blue-50 border-blue-200' }
@@ -79,7 +80,7 @@ function getFieldCategory(campo) {
   if (['telefono', 'nombres', 'apellidos', 'email', 'dni', 'tipo_documento', 'ciudad', 'trabajo'].includes(norm)) {
     return 'contacto'
   }
-  if (['estado_id', 'motivo_perdida', 'motivo_perdida_otro', 'tipo_cierre', 'segunda_voz', 'fecha_proxima_gestion', 'accion_proxima_gestion'].includes(norm)) {
+  if (['estado_id', 'motivo_perdida', 'motivo_perdida_otro', 'tipo_cierre', 'segunda_voz', 'fecha_proxima_gestion', 'accion_proxima_gestion', 'cita_evento', 'cita_estado_id', 'fecha_cita', 'tipo_cita'].includes(norm)) {
     return 'estado'
   }
   if (['asesor_id', 'supervisor_id'].includes(norm)) {
@@ -101,6 +102,9 @@ function getOrigenMeta(origen) {
   }
   if (norm.includes('ficha_tecnica')) {
     return { label: 'Ficha técnica', color: 'bg-purple-50 text-purple-700 border-purple-200' }
+  }
+  if (norm.includes('cita')) {
+    return { label: 'Agenda / Cita', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' }
   }
   if (norm.includes('estado')) {
     return { label: 'Cambio de estado', color: 'bg-amber-50 text-amber-700 border-amber-200' }

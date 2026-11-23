@@ -196,13 +196,17 @@ const SUBESTADO_MAP = {
   'No se ajusta a la metodología': 'Metodología',
   'Pérdida temporal': 'Pérdida temporal',
   'Oportunidad futura': 'Oportunidad futura',
-  'Llamar para coordinar matrícula / inicio': 'Llamar (matrícula)',
+  'Llamar para coordinar visita / cierre': 'Llamar (cierre)',
+  'Llamar para coordinar matrícula / inicio': 'Llamar (cierre)',
+  'Contactar por WhatsApp con promoción / bono': 'WhatsApp (promo)',
   'Contactar por WhatsApp con promoción / descuento': 'WhatsApp (promo)',
+  'Volver a contactar en nueva etapa / lanzamiento': 'Recontactar etapa',
   'Volver a contactar en nueva convocatoria / fecha': 'Recontactar fecha',
+  'Reevaluar interés y capacidad de financiamiento': 'Reevaluar interés',
   'Reevaluar interés y disponibilidad económica': 'Reevaluar interés',
   'Enviar información actualizada / catálogo': 'Enviar catálogo',
-  'Servicio por edad no cubierto por el momento (menor de 12 años)': 'Edad (< 12 años)',
-  'Petición de servicio para inicio de cursos a niveles más avanzados': 'Nivel avanzado',
+  'No califica para financiamiento / crédito': 'Sin financiamiento',
+  'Ubicación / proyecto no se ajusta': 'Ubicación / Proyecto',
 }
 
 function formatSubestadoText(text, maxChars = 20) {
@@ -262,8 +266,8 @@ export function EstadoSubinfo({ lead, estadoNombre }) {
     )
   }
 
-  // 2. Perdido / No interesado
-  if (norm.includes('perdid') || norm.includes('no interesado')) {
+  // 2. Perdido / No interesado / Desistió
+  if (norm.includes('perdid') || norm.includes('no interesado') || norm.includes('desist') || norm.includes('descart')) {
     const motivo = lead.motivo_perdida
     if (!motivo) return null
     const detalle = (motivo === 'Otro' && lead.motivo_perdida_otro)
@@ -282,8 +286,8 @@ export function EstadoSubinfo({ lead, estadoNombre }) {
     )
   }
 
-  // 3. Matrícula / Ganado / Cierre
-  if (norm.includes('matr') || norm.includes('ganad') || norm.includes('cierr')) {
+  // 3. Venta / Ganado / Cierre
+  if (norm.includes('matr') || norm.includes('ganad') || norm.includes('cierr') || norm.includes('venta concretad')) {
     const tipo = lead.tipo_cierre
     const segVoz = lead.segunda_voz
     if (!tipo && !segVoz) return null
@@ -303,8 +307,8 @@ export function EstadoSubinfo({ lead, estadoNombre }) {
     )
   }
 
-  // 4. En seguimiento
-  if (norm.includes('seguimiento')) {
+  // 4. En seguimiento / En negociación / Visita a Proyecto
+  if (norm.includes('seguimiento') || norm.includes('negociacion') || norm.includes('visita')) {
     const parts = formatDateParts(lead.fecha_proxima_gestion)
     if (!parts) return null
     return (
@@ -2200,7 +2204,7 @@ export default function Leads() {
         const respaldoSupervisionBadge = row.is_respaldo_supervision ? (
           <span
             className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5"
-            title="Respaldo de supervisión: Matrícula histórica conservada para la supervisión tras la salida o reasignación del asesor."
+            title="Respaldo de supervisión: Venta histórica conservada para la supervisión tras la salida o reasignación del asesor."
           >
             🛡️ Respaldo supervisión
           </span>

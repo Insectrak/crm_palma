@@ -627,7 +627,7 @@ export default function NuevoLead() {
                 <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-lg space-y-3 animate-in fade-in">
                   <div className="flex items-center gap-2 text-emerald-950 font-semibold text-xs">
                     <UserCheck size={14} className="text-emerald-600 shrink-0" />
-                    <span>Datos de Matrícula y Cierre</span>
+                    <span>Datos de Venta y Cierre</span>
                   </div>
 
                   <div>

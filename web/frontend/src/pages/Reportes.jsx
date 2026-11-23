@@ -523,14 +523,14 @@ export default function Reportes() {
           onClick={() => handleOpenLeadsModal({ tipo_metrica: 'total', metricaLabel: 'Total Leads', asesor_id: selectedAsesor || undefined })}
         />
         <KpiCard
-          label="Matrículas"
+          label="Ventas"
           value={(resumen.total_ganados || 0).toLocaleString('es-PE')}
           icon={Award}
           gradient="bg-gradient-to-br from-emerald-500 to-emerald-600"
-          subtitle="Matrículas en el período"
-          onClick={() => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Matrícula', asesor_id: selectedAsesor || undefined })}
+          subtitle="Ventas en el período"
+          onClick={() => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Venta', asesor_id: selectedAsesor || undefined })}
         />
-        <KpiCard label="Tasa Conversión" value={`${resumen.tasa_conversion || 0}%`} icon={Target} gradient="bg-gradient-to-br from-amber-500 to-amber-600" subtitle="Leads → Matrículas" />
+        <KpiCard label="Tasa Conversión" value={`${resumen.tasa_conversion || 0}%`} icon={Target} gradient="bg-gradient-to-br from-amber-500 to-amber-600" subtitle="Leads → Ventas" />
         <KpiCard label="Asesores Activos" value={resumen.asesores_activos || 0} icon={BarChart2} gradient="bg-gradient-to-br from-purple-500 to-purple-600" subtitle="Con leads en el período" />
       </div>
     )
@@ -545,14 +545,14 @@ export default function Reportes() {
           onClick={() => handleOpenLeadsModal({ tipo_metrica: 'total', metricaLabel: 'Total Leads', asesor_id: selectedAsesor || undefined })}
         />
         <KpiCard
-          label="Matrículas"
+          label="Ventas"
           value={(resumen.total_ganados || 0).toLocaleString('es-PE')}
           icon={Award}
           gradient="bg-gradient-to-br from-emerald-500 to-emerald-600"
-          subtitle="Matrículas en el período"
-          onClick={() => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Matrícula', asesor_id: selectedAsesor || undefined })}
+          subtitle="Ventas en el período"
+          onClick={() => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Venta', asesor_id: selectedAsesor || undefined })}
         />
-        <KpiCard label="Tasa Conversión" value={`${resumen.tasa_conversion || 0}%`} icon={Target} gradient="bg-gradient-to-br from-amber-500 to-amber-600" subtitle="Leads → Matrículas" />
+        <KpiCard label="Tasa Conversión" value={`${resumen.tasa_conversion || 0}%`} icon={Target} gradient="bg-gradient-to-br from-amber-500 to-amber-600" subtitle="Leads → Ventas" />
         <KpiCard label="Mejor Fuente" value={resumen.mejor_fuente || '—'} icon={TrendingUp} gradient="bg-gradient-to-br from-purple-500 to-purple-600" subtitle={`${resumen.fuentes_activas || 0} fuentes activas`} />
       </div>
     )
@@ -574,12 +574,12 @@ export default function Reportes() {
           onClick={() => handleOpenLeadsModal({ tipo_metrica: 'total', metricaLabel: 'Total Leads', asesor_id: selectedAsesor || undefined })}
         />
         <KpiCard
-          label="Matrículas"
+          label="Ventas"
           value={(resumen.ganados || 0).toLocaleString('es-PE')}
           icon={Award}
           gradient="bg-gradient-to-br from-emerald-500 to-emerald-600"
           subtitle="Cierres confirmados"
-          onClick={() => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Matrícula', asesor_id: selectedAsesor || undefined })}
+          onClick={() => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Venta', asesor_id: selectedAsesor || undefined })}
         />
         <KpiCard
           label="Leads Perdidos"
@@ -610,12 +610,12 @@ export default function Reportes() {
           onClick={() => handleOpenLeadsModal({ tipo_metrica: 'total', metricaLabel: 'Total Leads', asesor_id: selectedAsesor || undefined })}
         />
         <KpiCard
-          label="Matrículas"
+          label="Ventas"
           value={(resumen.total_ganados || 0).toLocaleString('es-PE')}
           icon={Award}
           gradient="bg-gradient-to-br from-emerald-500 to-emerald-600"
-          subtitle="Matrículas totales"
-          onClick={() => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Matrícula', asesor_id: selectedAsesor || undefined })}
+          subtitle="Ventas totales"
+          onClick={() => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Venta', asesor_id: selectedAsesor || undefined })}
         />
         <KpiCard label="Mejor Campaña" value={resumen.mejor_campana || '—'} icon={TrendingUp} gradient="bg-gradient-to-br from-amber-500 to-amber-600" subtitle="Por volumen de leads" />
       </div>
@@ -859,7 +859,7 @@ export default function Reportes() {
                       <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Contactados</th>
                       <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Calificados</th>
                       <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Negociación</th>
-                      <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Matrículas</th>
+                      <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Ventas</th>
                       <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Perdidos</th>
                       <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Sin contactar</th>
                       <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Conversión</th>
@@ -907,7 +907,7 @@ export default function Reportes() {
                           <Num
                             value={row.leads_ganados}
                             warn={row.leads_ganados > 0 ? 'green' : null}
-                            onClick={row.leads_ganados > 0 ? () => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Matrícula', asesor_id: row.asesor_id, asesor_nombre: row.nombre_completo }) : null}
+                            onClick={row.leads_ganados > 0 ? () => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Venta', asesor_id: row.asesor_id, asesor_nombre: row.nombre_completo }) : null}
                           />
                         </td>
                         <td className="px-3 py-3 text-center">
@@ -946,7 +946,7 @@ export default function Reportes() {
                   <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Contactados</th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Calificados</th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Negociación</th>
-                  <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Matrículas</th>
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Ventas</th>
                   <th className="text-center px-3 py-3 text-center py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Perdidos</th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Conversión</th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Contactabilidad</th>
@@ -985,7 +985,7 @@ export default function Reportes() {
                       <Num
                         value={row.leads_ganados}
                         warn={row.leads_ganados > 0 ? 'green' : null}
-                        onClick={row.leads_ganados > 0 ? () => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Matrícula', fuente: row.fuente, asesor_id: selectedAsesor || undefined }) : null}
+                        onClick={row.leads_ganados > 0 ? () => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Venta', fuente: row.fuente, asesor_id: selectedAsesor || undefined }) : null}
                       />
                     </td>
                     <td className="px-3 py-3 text-center">
@@ -1129,10 +1129,10 @@ export default function Reportes() {
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[100px]">Leads</th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Contactados</th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Calificados</th>
-                  <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Matrículas</th>
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Ventas</th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">% Contact.</th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">% Calif.</th>
-                  <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">% Matrículas</th>
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">% Ventas</th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">1er Contacto</th>
                 </tr>
               </thead>
@@ -1168,7 +1168,7 @@ export default function Reportes() {
                         <Num
                           value={row.leads_ganados}
                           warn={row.leads_ganados > 0 ? 'green' : null}
-                          onClick={row.leads_ganados > 0 ? () => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Matrícula', campana: row.campana, fuente: row.fuente, asesor_id: selectedAsesor || undefined }) : null}
+                          onClick={row.leads_ganados > 0 ? () => handleOpenLeadsModal({ tipo_metrica: 'matriculas', metricaLabel: 'Leads Venta', campana: row.campana, fuente: row.fuente, asesor_id: selectedAsesor || undefined }) : null}
                         />
                       </td>
                       <td className="px-3 py-3 text-center"><PctBadge value={row.pct_contactados} /></td>
@@ -1425,7 +1425,7 @@ export default function Reportes() {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-xs font-semibold text-gray-500 mr-1">Métrica:</span>
                   {[
-                    { v: 'matriculas', label: '🏆 Matrículas' },
+                    { v: 'matriculas', label: '🏆 Ventas' },
                     { v: 'contactabilidad', label: '📞 Contactabilidad' },
                     { v: 'conversion', label: '🎯 % Conversión' },
                     { v: 'citas', label: '📅 Citas' },
@@ -1704,7 +1704,7 @@ export default function Reportes() {
                           <button
                             onClick={() => handleOpenLeadsModal({
                               tipo_metrica: 'matriculas',
-                              metricaLabel: 'Leads Matrícula',
+                              metricaLabel: 'Leads Venta',
                               asesor_id: isEquipoMode ? undefined : r.asesor_id,
                               supervisor_id: isEquipoMode ? r.supervisor_id : undefined,
                               asesor_nombre: isEquipoMode ? undefined : r.nombre_completo,
@@ -1714,7 +1714,7 @@ export default function Reportes() {
                             })}
                             className="hover:underline hover:text-emerald-600 font-semibold text-emerald-600 cursor-pointer"
                           >
-                            {r.leads_ganados || 0} matrículas
+                            {r.leads_ganados || 0} ventas
                           </button>
                           <span>·</span>
                           <button
@@ -1758,7 +1758,7 @@ export default function Reportes() {
                               Conversión
                             </div>
                             <div className="text-[11px] text-gray-500 mt-0.5">
-                              {r.leads_ganados || 0} matrículas
+                              {r.leads_ganados || 0} ventas
                             </div>
                           </div>
                         ) : rankingMetrica === 'citas' ? (
@@ -1774,7 +1774,7 @@ export default function Reportes() {
                             <div className="text-[11px] text-gray-500 mt-0.5">
                               {r.citas_completadas != null && r.citas_completadas > 0
                                 ? `${r.citas_completadas} completadas`
-                                : `${r.leads_ganados || 0} matrículas`}
+                                : `${r.leads_ganados || 0} ventas`}
                             </div>
                           </div>
                         ) : rankingMetrica === 'llamadas' ? (
@@ -1795,7 +1795,7 @@ export default function Reportes() {
                               {r.leads_ganados || 0}
                             </div>
                             <div className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">
-                              Matrículas
+                              Ventas
                             </div>
                             <div className="text-[11px] text-gray-500 mt-0.5">
                               {r.tasa_conversion_pct || 0}% conv.
