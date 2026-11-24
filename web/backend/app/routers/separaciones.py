@@ -14,7 +14,7 @@ from datetime import date, datetime
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from psycopg2.extras import RealDictCursor
 from pydantic import BaseModel
@@ -310,7 +310,7 @@ def get_separaciones_meta(admin: TokenData = Depends(require_admin)):
             )
             cats = cur.fetchone() or {}
 
-            cur.execute("SELECT * FROM crm.separaciones_drive_config WHERE id = 1")
+            cur.execute("SELECT * FROM crm.separaciones_drive_config WHERE modulo = 'separaciones' LIMIT 1")
             drive_cfg = cur.fetchone()
             drive_cfg_out = dict(drive_cfg) if drive_cfg else None
             if drive_cfg_out:
@@ -322,7 +322,7 @@ def get_separaciones_meta(admin: TokenData = Depends(require_admin)):
                 """
                 SELECT *
                 FROM crm.separaciones_revisions
-                WHERE status = 'pending'
+                WHERE modulo = 'separaciones' AND status = 'pending'
                 ORDER BY created_at DESC
                 LIMIT 1
                 """
@@ -332,7 +332,9 @@ def get_separaciones_meta(admin: TokenData = Depends(require_admin)):
             if pending_out and hasattr(pending_out.get("created_at"), "isoformat"):
                 pending_out["created_at"] = pending_out["created_at"].isoformat()
 
-            cur.execute("SELECT COUNT(*)::int AS total_revs FROM crm.separaciones_revisions WHERE status IN ('approved', 'applied')")
+            cur.execute(
+                "SELECT COUNT(*)::int AS total_revs FROM crm.separaciones_revisions WHERE modulo = 'separaciones' AND status IN ('approved', 'applied')"
+            )
             rev_count = (cur.fetchone() or {}).get("total_revs", 0)
 
     return {
@@ -470,10 +472,10 @@ def create_separacion_registro(
             cur.execute(
                 """
                 INSERT INTO crm.separaciones_revisions (
-                    revision_number, source, status, summary_json, diff_json,
+                    modulo, revision_number, source, status, summary_json, diff_json,
                     message, created_by, created_by_name, reviewed_by, reviewed_by_name, reviewed_at
                 )
-                VALUES (%s, 'crm_manual', 'applied', %s::jsonb, %s::jsonb, %s, %s::uuid, %s, %s::uuid, %s, NOW())
+                VALUES ('separaciones', %s, 'crm_manual', 'applied', %s::jsonb, %s::jsonb, %s, %s::uuid, %s, %s::uuid, %s, NOW())
                 RETURNING id
                 """,
                 (
@@ -489,9 +491,9 @@ def create_separacion_registro(
             cur.execute(
                 """
                 INSERT INTO crm.separaciones_audit_log (
-                    registro_id, revision_id, action, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre
+                    modulo, registro_id, revision_id, action, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre
                 )
-                VALUES (%s, %s, 'create', 'registro', NULL, %s, %s::uuid, %s)
+                VALUES ('separaciones', %s, %s, 'create', 'registro', NULL, %s, %s::uuid, %s)
                 """,
                 (created["id"], rev_id, sds._row_label(snap), actor_id, user_name),
             )
@@ -590,10 +592,10 @@ def update_separacion_registro(
                 cur.execute(
                     """
                     INSERT INTO crm.separaciones_revisions (
-                        revision_number, source, status, summary_json, diff_json,
+                        modulo, revision_number, source, status, summary_json, diff_json,
                         message, created_by, created_by_name, reviewed_by, reviewed_by_name, reviewed_at
                     )
-                    VALUES (%s, 'crm_manual', 'applied', %s::jsonb, %s::jsonb, %s, %s::uuid, %s, %s::uuid, %s, NOW())
+                    VALUES ('separaciones', %s, 'crm_manual', 'applied', %s::jsonb, %s::jsonb, %s, %s::uuid, %s, %s::uuid, %s, NOW())
                     RETURNING id
                     """,
                     (
@@ -609,9 +611,9 @@ def update_separacion_registro(
                     cur.execute(
                         """
                         INSERT INTO crm.separaciones_audit_log (
-                            registro_id, revision_id, action, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre
+                            modulo, registro_id, revision_id, action, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre
                         )
-                        VALUES (%s, %s, 'update', %s, %s, %s, %s::uuid, %s)
+                        VALUES ('separaciones', %s, %s, 'update', %s, %s, %s, %s::uuid, %s)
                         """,
                         (registro_id, rev_id, cf["field"], cf["before"], cf["after"], actor_id, user_name),
                     )
@@ -656,10 +658,10 @@ def delete_separacion_registro(
             cur.execute(
                 """
                 INSERT INTO crm.separaciones_revisions (
-                    revision_number, source, status, summary_json, diff_json,
+                    modulo, revision_number, source, status, summary_json, diff_json,
                     message, created_by, created_by_name, reviewed_by, reviewed_by_name, reviewed_at
                 )
-                VALUES (%s, 'crm_manual', 'applied', %s::jsonb, %s::jsonb, %s, %s::uuid, %s, %s::uuid, %s, NOW())
+                VALUES ('separaciones', %s, 'crm_manual', 'applied', %s::jsonb, %s::jsonb, %s, %s::uuid, %s, %s::uuid, %s, NOW())
                 RETURNING id
                 """,
                 (
@@ -674,14 +676,115 @@ def delete_separacion_registro(
             cur.execute(
                 """
                 INSERT INTO crm.separaciones_audit_log (
-                    registro_id, revision_id, action, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre
+                    modulo, registro_id, revision_id, action, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre
                 )
-                VALUES (%s, %s, 'delete', 'registro', %s, NULL, %s::uuid, %s)
+                VALUES ('separaciones', %s, %s, 'delete', 'registro', %s, NULL, %s::uuid, %s)
                 """,
                 (registro_id, rev_id, sds._row_label(snap), actor_id, user_name),
             )
         conn.commit()
     return {"message": "Registro eliminado", "id": registro_id}
+
+
+def upsert_pending_module_revision(
+    cur,
+    *,
+    modulo: str,
+    source: str,
+    content_hash: str,
+    diff_res: dict[str, Any],
+    message: str,
+    actor_id: Optional[str],
+    user_name: str,
+    update_drive_status: bool = True,
+) -> Optional[dict[str, Any]]:
+    """Crea, actualiza o limpia la revisión pendiente estilo Git para Drive o Upload Excel."""
+    summary = diff_res["summary"]
+    has_changes = (summary["added"] + summary["modified"] + summary["removed"]) > 0
+    pending_rev = None
+
+    if has_changes:
+        cur.execute(
+            """
+            SELECT *
+            FROM crm.separaciones_revisions
+            WHERE modulo = %s AND status = 'pending'
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (modulo,),
+        )
+        existing_pending = cur.fetchone()
+        if existing_pending:
+            cur.execute(
+                """
+                UPDATE crm.separaciones_revisions
+                SET source = %s, drive_hash = %s, summary_json = %s::jsonb,
+                    diff_json = %s::jsonb, message = %s,
+                    created_by = %s::uuid, created_by_name = %s, created_at = NOW()
+                WHERE id = %s
+                RETURNING *
+                """,
+                (
+                    source,
+                    content_hash,
+                    json.dumps(summary),
+                    json.dumps(diff_res["changes"]),
+                    message,
+                    actor_id,
+                    user_name,
+                    existing_pending["id"],
+                ),
+            )
+            pending_rev = dict(cur.fetchone())
+        else:
+            rev_num = _next_revision_number(cur)
+            cur.execute(
+                """
+                INSERT INTO crm.separaciones_revisions (
+                    modulo, revision_number, source, status, drive_hash, summary_json, diff_json,
+                    message, created_by, created_by_name
+                )
+                VALUES (%s, %s, %s, 'pending', %s, %s::jsonb, %s::jsonb, %s, %s::uuid, %s)
+                RETURNING *
+                """,
+                (
+                    modulo,
+                    rev_num,
+                    source,
+                    content_hash,
+                    json.dumps(summary),
+                    json.dumps(diff_res["changes"]),
+                    message,
+                    actor_id,
+                    user_name,
+                ),
+            )
+            pending_rev = dict(cur.fetchone())
+    else:
+        cur.execute(
+            """
+            UPDATE crm.separaciones_revisions
+            SET status = 'rejected', reviewed_by = %s::uuid, reviewed_by_name = %s, reviewed_at = NOW()
+            WHERE modulo = %s AND status = 'pending'
+            """,
+            (actor_id, user_name, modulo),
+        )
+
+    if update_drive_status:
+        cur.execute(
+            """
+            UPDATE crm.separaciones_drive_config
+            SET last_checked_at = NOW(), last_seen_hash = %s,
+                last_check_status = %s, last_check_error = NULL, updated_at = NOW()
+            WHERE modulo = %s
+            """,
+            (content_hash, "changes_pending" if has_changes else "up_to_date", modulo),
+        )
+
+    if pending_rev and hasattr(pending_rev.get("created_at"), "isoformat"):
+        pending_rev["created_at"] = pending_rev["created_at"].isoformat()
+    return pending_rev
 
 
 @router.put("/drive/config")
@@ -699,7 +802,7 @@ def update_drive_config(
                 """
                 UPDATE crm.separaciones_drive_config
                 SET spreadsheet_id = %s, gid = %s, sheet_url = %s, updated_at = NOW()
-                WHERE id = 1
+                WHERE modulo = 'separaciones'
                 RETURNING *
                 """,
                 (sheet_id, gid, data.sheet_url.strip()),
@@ -718,7 +821,7 @@ def check_drive_changes(admin: TokenData = Depends(require_admin)):
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             actor_id, user_name = _resolve_actor(cur, admin)
-            cur.execute("SELECT * FROM crm.separaciones_drive_config WHERE id = 1")
+            cur.execute("SELECT * FROM crm.separaciones_drive_config WHERE modulo = 'separaciones' LIMIT 1")
             cfg = cur.fetchone()
             spreadsheet_id = (cfg or {}).get("spreadsheet_id") or sds.DEFAULT_SPREADSHEET_ID
             gid = (cfg or {}).get("gid") or sds.DEFAULT_GID
@@ -733,7 +836,7 @@ def check_drive_changes(admin: TokenData = Depends(require_admin)):
                     UPDATE crm.separaciones_drive_config
                     SET last_checked_at = NOW(), last_check_status = 'error',
                         last_check_error = %s, updated_at = NOW()
-                    WHERE id = 1
+                    WHERE modulo = 'separaciones'
                     """,
                     (str(exc)[:500],),
                 )
@@ -747,72 +850,92 @@ def check_drive_changes(admin: TokenData = Depends(require_admin)):
             summary = diff_res["summary"]
             has_changes = (summary["added"] + summary["modified"] + summary["removed"]) > 0
             source = "drive_initial" if len(crm_rows) == 0 else "drive_sync"
-
-            pending_rev = None
-            if has_changes:
-                cur.execute(
-                    "SELECT * FROM crm.separaciones_revisions WHERE status = 'pending' ORDER BY created_at DESC LIMIT 1"
-                )
-                existing_pending = cur.fetchone()
-                msg = (
-                    f"Importación inicial desde Drive ({summary['added']} registros)"
-                    if source == "drive_initial"
-                    else f"Cambios detectados en Drive: +{summary['added']} nuevos, ~{summary['modified']} modificados, -{summary['removed']} quitados"
-                )
-                if existing_pending:
-                    cur.execute(
-                        """
-                        UPDATE crm.separaciones_revisions
-                        SET source = %s, drive_hash = %s, summary_json = %s::jsonb,
-                            diff_json = %s::jsonb, message = %s, created_at = NOW()
-                        WHERE id = %s
-                        RETURNING *
-                        """,
-                        (source, drive_hash, json.dumps(summary), json.dumps(diff_res["changes"]), msg, existing_pending["id"]),
-                    )
-                    pending_rev = dict(cur.fetchone())
-                else:
-                    rev_num = _next_revision_number(cur)
-                    cur.execute(
-                        """
-                        INSERT INTO crm.separaciones_revisions (
-                            revision_number, source, status, drive_hash, summary_json, diff_json,
-                            message, created_by, created_by_name
-                        )
-                        VALUES (%s, %s, 'pending', %s, %s::jsonb, %s::jsonb, %s, %s::uuid, %s)
-                        RETURNING *
-                        """,
-                        (rev_num, source, drive_hash, json.dumps(summary), json.dumps(diff_res["changes"]), msg, actor_id, user_name),
-                    )
-                    pending_rev = dict(cur.fetchone())
-            else:
-                # Si ya no hay diferencias, limpiar cualquier revisión pendiente obsoleta
-                cur.execute(
-                    """
-                    UPDATE crm.separaciones_revisions
-                    SET status = 'rejected', reviewed_by = %s::uuid, reviewed_by_name = %s, reviewed_at = NOW()
-                    WHERE status = 'pending'
-                    """,
-                    (actor_id, user_name),
-                )
-
-            cur.execute(
-                """
-                UPDATE crm.separaciones_drive_config
-                SET last_checked_at = NOW(), last_seen_hash = %s,
-                    last_check_status = %s, last_check_error = NULL, updated_at = NOW()
-                WHERE id = 1
-                """,
-                (drive_hash, "changes_pending" if has_changes else "up_to_date"),
+            msg = (
+                f"Importación inicial desde Drive ({summary['added']} registros)"
+                if source == "drive_initial"
+                else f"Cambios detectados en Drive: +{summary['added']} nuevos, ~{summary['modified']} modificados, -{summary['removed']} quitados"
+            )
+            pending_rev = upsert_pending_module_revision(
+                cur,
+                modulo="separaciones",
+                source=source,
+                content_hash=drive_hash,
+                diff_res=diff_res,
+                message=msg,
+                actor_id=actor_id,
+                user_name=user_name,
+                update_drive_status=True,
             )
         conn.commit()
-
-    if pending_rev and hasattr(pending_rev.get("created_at"), "isoformat"):
-        pending_rev["created_at"] = pending_rev["created_at"].isoformat()
 
     return {
         "has_changes": has_changes,
         "drive_hash": drive_hash,
+        "summary": summary,
+        "pending_revision": pending_rev,
+    }
+
+
+@router.post("/upload")
+async def upload_separaciones_excel(
+    file: UploadFile = File(...),
+    admin: TokenData = Depends(require_admin),
+):
+    """
+    Sube un archivo Excel (.xlsx / .xlsm) o CSV para comparar contra el respaldo
+    de Separaciones en el servidor y generar un Diff estilo Git pendiente de aprobación.
+    """
+    filename = (file.filename or "archivo.xlsx").strip()
+    if not filename.lower().endswith((".xlsx", ".xlsm", ".csv")):
+        raise HTTPException(status_code=400, detail="Solo se admiten archivos .xlsx, .xlsm o .csv")
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="El archivo está vacío")
+
+    try:
+        sheets, file_hash = sds.read_tabular_sheets(content, filename)
+        incoming_rows = sds.parse_separaciones_workbook(sheets)
+    except Exception as exc:
+        logger.warning("[separaciones_upload] error leyendo %s: %s", filename, exc)
+        raise HTTPException(status_code=400, detail=f"No se pudo interpretar el archivo Excel/CSV: {exc}")
+
+    if not incoming_rows:
+        raise HTTPException(
+            status_code=400,
+            detail="No se detectaron registros de Separaciones válidos en el archivo subido",
+        )
+
+    with get_db() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            actor_id, user_name = _resolve_actor(cur, admin)
+            cur.execute("SELECT * FROM crm.separaciones_registros WHERE activo = TRUE")
+            crm_rows = [dict(r) for r in cur.fetchall()]
+
+            diff_res = sds.compute_drive_diff(crm_rows, incoming_rows)
+            summary = diff_res["summary"]
+            has_changes = (summary["added"] + summary["modified"] + summary["removed"]) > 0
+            msg = (
+                f"Carga desde Excel ({filename}): +{summary['added']} nuevos, "
+                f"~{summary['modified']} modificados, -{summary['removed']} quitados"
+            )
+            pending_rev = upsert_pending_module_revision(
+                cur,
+                modulo="separaciones",
+                source="excel_upload",
+                content_hash=file_hash,
+                diff_res=diff_res,
+                message=msg,
+                actor_id=actor_id,
+                user_name=user_name,
+                update_drive_status=False,
+            )
+        conn.commit()
+
+    return {
+        "has_changes": has_changes,
+        "parsed_rows": len(incoming_rows),
+        "filename": filename,
+        "file_hash": file_hash,
         "summary": summary,
         "pending_revision": pending_rev,
     }
@@ -830,6 +953,7 @@ def list_separaciones_revisions(
                 """
                 SELECT *
                 FROM crm.separaciones_revisions
+                WHERE modulo = 'separaciones'
                 ORDER BY revision_number DESC, id DESC
                 LIMIT %s
                 """,
@@ -849,19 +973,23 @@ def approve_drive_revision(
     data: RevisionApproveIn,
     admin: TokenData = Depends(require_admin),
 ):
-    """Aprueba e incorpora en PostgreSQL los cambios seleccionados desde Drive (merge estilo Git)."""
+    """Aprueba e incorpora en PostgreSQL los cambios seleccionados desde Drive o Excel (merge estilo Git)."""
     selected_set = set(data.selected_keys) if data.selected_keys is not None else None
 
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             actor_id, user_name = _resolve_actor(cur, admin)
-            cur.execute("SELECT * FROM crm.separaciones_revisions WHERE id = %s", (revision_id,))
+            cur.execute(
+                "SELECT * FROM crm.separaciones_revisions WHERE id = %s AND modulo = 'separaciones'",
+                (revision_id,),
+            )
             rev = cur.fetchone()
             if not rev:
                 raise HTTPException(status_code=404, detail="Revisión no encontrada")
             if rev["status"] != "pending":
                 raise HTTPException(status_code=400, detail=f"La revisión ya está en estado '{rev['status']}'")
 
+            row_origen = "excel" if rev.get("source") == "excel_upload" else "drive"
             diff_items = rev.get("diff_json") or []
             applied_items = []
             applied_counts = {"added": 0, "modified": 0, "removed": 0}
@@ -894,7 +1022,7 @@ def approve_drive_revision(
                             %s, %s::date,
                             %s, %s, %s,
                             %s, %s, %s,
-                            'drive', %s::uuid, %s::uuid
+                            %s, %s::uuid, %s::uuid
                         )
                         RETURNING id
                         """,
@@ -906,16 +1034,16 @@ def approve_drive_revision(
                             after.get("fecha_vencimiento"), after.get("fecha_vencimiento_date"),
                             after.get("monto_raw"), after.get("monto_numerico"), after.get("moneda") or "PEN",
                             after.get("estrategia"), after.get("estado"), after.get("observaciones"),
-                            actor_id, actor_id,
+                            row_origen, actor_id, actor_id,
                         ),
                     )
                     new_id = cur.fetchone()["id"]
                     cur.execute(
                         """
                         INSERT INTO crm.separaciones_audit_log (
-                            registro_id, revision_id, action, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre
+                            modulo, registro_id, revision_id, action, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre
                         )
-                        VALUES (%s, %s, 'drive_approve_add', 'registro', NULL, %s, %s::uuid, %s)
+                        VALUES ('separaciones', %s, %s, 'drive_approve_add', 'registro', NULL, %s, %s::uuid, %s)
                         """,
                         (new_id, revision_id, item.get("label"), actor_id, user_name),
                     )
@@ -956,9 +1084,9 @@ def approve_drive_revision(
                             cur.execute(
                                 """
                                 INSERT INTO crm.separaciones_audit_log (
-                                    registro_id, revision_id, action, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre
+                                    modulo, registro_id, revision_id, action, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre
                                 )
-                                VALUES (%s, %s, 'drive_approve_update', %s, %s, %s, %s::uuid, %s)
+                                VALUES ('separaciones', %s, %s, 'drive_approve_update', %s, %s, %s, %s::uuid, %s)
                                 """,
                                 (reg_id, revision_id, cf.get("field"), cf.get("before"), cf.get("after"), actor_id, user_name),
                             )
@@ -979,9 +1107,9 @@ def approve_drive_revision(
                         cur.execute(
                             """
                             INSERT INTO crm.separaciones_audit_log (
-                                registro_id, revision_id, action, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre
+                                modulo, registro_id, revision_id, action, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre
                             )
-                            VALUES (%s, %s, 'drive_approve_remove', 'registro', %s, NULL, %s::uuid, %s)
+                            VALUES ('separaciones', %s, %s, 'drive_approve_remove', 'registro', %s, NULL, %s::uuid, %s)
                             """,
                             (reg_id, revision_id, item.get("label") or before.get("proyecto"), actor_id, user_name),
                         )
@@ -1013,16 +1141,17 @@ def approve_drive_revision(
             )
             approved_rev = dict(cur.fetchone())
 
-            cur.execute(
-                """
-                UPDATE crm.separaciones_drive_config
-                SET last_approved_hash = COALESCE(%s, last_approved_hash),
-                    last_check_status = 'up_to_date',
-                    updated_at = NOW()
-                WHERE id = 1
-                """,
-                (rev.get("drive_hash"),),
-            )
+            if rev.get("source") != "excel_upload":
+                cur.execute(
+                    """
+                    UPDATE crm.separaciones_drive_config
+                    SET last_approved_hash = COALESCE(%s, last_approved_hash),
+                        last_check_status = 'up_to_date',
+                        updated_at = NOW()
+                    WHERE modulo = 'separaciones'
+                    """,
+                    (rev.get("drive_hash"),),
+                )
         conn.commit()
 
     for k in ("created_at", "reviewed_at"):
@@ -1042,11 +1171,14 @@ def reject_drive_revision(
     data: Optional[RevisionRejectIn] = None,
     admin: TokenData = Depends(require_admin),
 ):
-    """Descarta los cambios entrantes de Drive manteniendo intacta la información del servidor."""
+    """Descarta los cambios entrantes de Drive o Excel manteniendo intacta la información del servidor."""
     with get_db() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             actor_id, user_name = _resolve_actor(cur, admin)
-            cur.execute("SELECT * FROM crm.separaciones_revisions WHERE id = %s", (revision_id,))
+            cur.execute(
+                "SELECT * FROM crm.separaciones_revisions WHERE id = %s AND modulo = 'separaciones'",
+                (revision_id,),
+            )
             rev = cur.fetchone()
             if not rev:
                 raise HTTPException(status_code=404, detail="Revisión no encontrada")
@@ -1066,9 +1198,10 @@ def reject_drive_revision(
                 """,
                 (new_msg, actor_id, user_name, revision_id),
             )
-            cur.execute(
-                "UPDATE crm.separaciones_drive_config SET last_check_status = 'rejected_keep_crm', updated_at = NOW() WHERE id = 1"
-            )
+            if rev.get("source") != "excel_upload":
+                cur.execute(
+                    "UPDATE crm.separaciones_drive_config SET last_check_status = 'rejected_keep_crm', updated_at = NOW() WHERE modulo = 'separaciones'"
+                )
         conn.commit()
     return {"message": "Revisión descartada; prevalecen los datos del CRM"}
 

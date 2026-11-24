@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   FileSpreadsheet,
   RefreshCw,
@@ -9,6 +9,7 @@ import {
   Edit2,
   Trash2,
   Download,
+  Upload,
   Search,
   CheckCircle2,
   XCircle,
@@ -80,14 +81,16 @@ function getEstadoBadgeStyle(estado) {
   return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800'
 }
 
-export default function Separaciones() {
+export default function Separaciones({ embedded = false }) {
   const [meta, setMeta] = useState(null)
   const [items, setItems] = useState([])
   const [resumen, setResumen] = useState({})
   const [loading, setLoading] = useState(true)
   const [checkingDrive, setCheckingDrive] = useState(false)
+  const [uploadingExcel, setUploadingExcel] = useState(false)
   const [error, setError] = useState(null)
   const [toast, setToast] = useState(null)
+  const fileInputRef = useRef(null)
 
   // Filtros
   const [selectedPeriodo, setSelectedPeriodo] = useState('') // '' = todos o 'YYYY-M'
@@ -203,6 +206,35 @@ export default function Separaciones() {
       setError(err.response?.data?.detail || 'Error al verificar Google Drive.')
     } finally {
       setCheckingDrive(false)
+    }
+  }
+
+  const handleExcelFileSelected = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploadingExcel(true)
+    setError(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post('/api/separaciones/upload', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      await fetchAll()
+      if (res.data?.has_changes && res.data?.pending_revision) {
+        showToastMsg(
+          `Excel comparado (${res.data.parsed_rows} registros). Revisa el Diff antes de aprobar.`,
+          'info',
+        )
+        openDiffModalWithRev(res.data.pending_revision)
+      } else {
+        showToastMsg(`Excel comparado (${res.data.parsed_rows} registros): sin diferencias respecto al servidor.`)
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail || 'No se pudo procesar el archivo Excel subido.')
+    } finally {
+      setUploadingExcel(false)
     }
   }
 
@@ -406,7 +438,14 @@ export default function Separaciones() {
   const periodos = meta?.periodos || []
 
   return (
-    <div className="p-6 max-w-[1680px] mx-auto space-y-6 animate-fadeIn text-slate-900 dark:text-slate-100">
+    <div className={`${embedded ? '' : 'p-6 max-w-[1680px] mx-auto'} space-y-6 animate-fadeIn text-slate-900 dark:text-slate-100`}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xlsm,.csv"
+        className="hidden"
+        onChange={handleExcelFileSelected}
+      />
       {/* Toast */}
       {toast && (
         <div
@@ -431,12 +470,14 @@ export default function Separaciones() {
           </span>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                Control de Separaciones y Cierres
-              </h1>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-900 text-white dark:bg-slate-800 dark:text-amber-300">
-                Solo Admin · Respaldado en Servidor
-              </span>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                Control de Separaciones
+              </h2>
+              {!embedded && (
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-900 text-white dark:bg-slate-800 dark:text-amber-300">
+                  Solo Admin · Respaldado en Servidor
+                </span>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
               <span className="inline-flex items-center gap-1">
@@ -463,6 +504,16 @@ export default function Separaciones() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingExcel}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-[#1F1D5C] hover:bg-[#161444] text-white shadow-sm transition-colors cursor-pointer disabled:opacity-60"
+          >
+            <Upload size={14} />
+            <span>{uploadingExcel ? 'Analizando Excel…' : 'Subir Excel (.xlsx / .csv)'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => handleCheckDrive(true)}
@@ -556,7 +607,7 @@ export default function Separaciones() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm font-bold text-amber-950 dark:text-amber-100">
-                  Cambios pendientes detectados en Google Drive (Revisión #{pendingRevision.revision_number})
+                  Cambios pendientes ({pendingRevision.source === 'excel_upload' ? 'Archivo Excel' : 'Google Drive'} · Revisión #{pendingRevision.revision_number})
                 </h3>
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                   +{pendingRevision.summary_json?.added ?? 0} nuevos
@@ -1061,7 +1112,7 @@ export default function Separaciones() {
               <div>
                 <h3 className="text-base font-bold flex items-center gap-2">
                   <GitPullRequest size={18} className="text-indigo-600" />
-                  Comparativo Git: Google Drive vs. Servidor CRM (Rev #{pendingRevision.revision_number})
+                  Comparativo Git: {pendingRevision.source === 'excel_upload' ? 'Archivo Excel' : 'Google Drive'} vs. Servidor CRM (Rev #{pendingRevision.revision_number})
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Marca o desmarca qué cambios deseas fusionar al servidor. Los registros creados en el CRM no se borran.

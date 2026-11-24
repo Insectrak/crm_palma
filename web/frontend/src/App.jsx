@@ -45,7 +45,7 @@ const DashboardSupervisionControl = lazyWithReload(() => import('@/pages/Dashboa
 const BolsaReciclajeTMK = lazyWithReload(() => import('@/pages/BolsaReciclajeTMK'))
 const LeadsCampanas = lazyWithReload(() => import('@/pages/LeadsCampanas'))
 const PapeleraLeads = lazyWithReload(() => import('@/pages/PapeleraLeads'))
-const Separaciones = lazyWithReload(() => import('@/pages/Separaciones'))
+const GestionLotes = lazyWithReload(() => import('@/pages/GestionLotes'))
 
 /**
  * Ruta protegida: redirige al login si el usuario no está autenticado.
@@ -228,15 +228,16 @@ export default function App() {
                   </PermissionRoute>
                 }
               />
-              {/* Separaciones y Cierres (Excel respaldado en servidor + sync Git desde Drive) — exclusivo admin */}
+              {/* Gestión de Lotes (Separaciones y Cierres en servidor + sync Git desde Drive/Excel) — exclusivo admin */}
               <Route
-                path="separaciones"
+                path="gestion-lotes"
                 element={
                   <PermissionRoute permission="admin.all" legacyRoles={['admin']}>
-                    <Separaciones />
+                    <GestionLotes />
                   </PermissionRoute>
                 }
               />
+              <Route path="separaciones" element={<Navigate to="/gestion-lotes" replace />} />
               {/* Bolsa de Reciclaje TMK */}
               <Route
                 path="reciclaje-tmk"

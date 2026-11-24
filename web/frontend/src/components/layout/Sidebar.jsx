@@ -34,7 +34,7 @@ const ALL_MENU_ITEMS = [
   { label: 'Carga Masiva', icon: Upload, path: '/carga-masiva', roles: null, group: 'daily', permissionKey: 'carga_masiva.use' },
   // ── Gestión (supervisor/admin) ──────────────────────────────
   { label: 'Supervisión y Control', icon: ShieldCheck, path: '/supervision-control', roles: ['admin'], group: 'mgmt', permissionKey: null },
-  { label: 'Separaciones', icon: FileSpreadsheet, path: '/separaciones', roles: ['admin'], group: 'mgmt', permissionKey: null },
+  { label: 'Gestión de Lotes', icon: FileSpreadsheet, path: '/gestion-lotes', roles: ['admin'], group: 'mgmt', permissionKey: null },
   { label: 'Panel Jefatura', icon: LayoutDashboard, path: '/dashboard-jefatura', roles: ['admin', 'supervisor'], group: 'mgmt', permissionKey: 'dashboards.view' },
   { label: 'Bolsa TMK', icon: RotateCcw, path: '/reciclaje-tmk', roles: ['admin', 'supervisor'], group: 'mgmt', permissionKey: 'leads.manage' },
   { label: 'Histórico', icon: Archive, path: '/historicos', roles: ['admin'], group: 'mgmt', permissionKey: 'historicos.view' },
@@ -203,7 +203,7 @@ function Sidebar() {
     if (item.path === '/supervision-control') {
       return role === 'admin'
     }
-    if (item.path === '/separaciones') {
+    if (item.path === '/gestion-lotes') {
       return role === 'admin'
     }
     if (item.path === '/dashboard-jefatura') {

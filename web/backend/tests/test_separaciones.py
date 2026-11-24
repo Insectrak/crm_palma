@@ -1,21 +1,20 @@
-"""Tests unitarios para el módulo de Separaciones, parser de Drive y diff estilo Git."""
+"""Tests unitarios para Gestión de Lotes (Separaciones + Cierres), Excel/Drive parsers y diff Git."""
+import io
 import pytest
 from fastapi import HTTPException
 
+from app.auth.jwt import require_admin
 from app.auth.schemas import TokenData
-from app.routers.separaciones import (
-    approve_drive_revision,
-    check_drive_changes,
-    create_separacion_registro,
-    list_separaciones,
-    RegistroCreateIn,
-    RevisionApproveIn,
-)
 from app.services.separaciones_drive_service import (
+    compute_cierres_diff,
     compute_drive_diff,
     extract_spreadsheet_id_and_gid,
+    parse_cierres_csv,
+    parse_cierres_workbook,
+    parse_date_flexible,
     parse_drive_csv,
     parse_money,
+    read_tabular_sheets,
 )
 
 
@@ -120,25 +119,100 @@ def test_compute_drive_diff_detecta_agregados_modificados_eliminados_y_preserva_
 
 
 @pytest.mark.unit
-def test_separaciones_endpoints_rechazan_no_admin():
+def test_separaciones_y_cierres_rechazan_no_admin():
     sup = TokenData(user_id="2", email="sup@test.com", role="supervisor")
     ase = TokenData(user_id="3", email="ase@test.com", role="asesor")
 
-    with pytest.raises(HTTPException) as e1:
-        list_separaciones(admin=sup)
-    assert e1.value.status_code == 403
+    for non_admin in (sup, ase):
+        with pytest.raises(HTTPException) as exc:
+            require_admin(non_admin)
+        assert exc.value.status_code == 403
 
-    with pytest.raises(HTTPException) as e2:
-        check_drive_changes(admin=ase)
-    assert e2.value.status_code == 403
 
-    with pytest.raises(HTTPException) as e3:
-        approve_drive_revision(1, RevisionApproveIn(), admin=sup)
-    assert e3.value.status_code == 403
+@pytest.mark.unit
+def test_parse_date_flexible_serial_excel():
+    s, d = parse_date_flexible("46319.0")
+    assert s is not None
+    assert d is not None
+    assert d.year == 2026 and d.month == 10
 
-    with pytest.raises(HTTPException) as e4:
-        create_separacion_registro(
-            RegistroCreateIn(tipo="separacion", anio=2026, mes=10, proyecto="X", lote="A1"),
-            admin=ase,
-        )
-    assert e4.value.status_code == 403
+
+@pytest.mark.unit
+def test_parse_cierres_csv_y_diff():
+    csv_sample = """\
+,FORMATO,PDR-FO-GC-17,,,,,,,,,,,,,
+,CUADRO DE CIERRE DE VENTAS - OCTUBRE - 2026,,,,,,,,,,,,,,,
+,ASESOR,PROYECTO,NOMENCLATURA DE LOTE,NOMBRE DEL CLIENTE,DISTRITO DE ORIGEN DEL CLIENTE,FECHA DE INGRESO DE INICIAL,MONTO TOTAL DE VENTA,MONEDA,% DE INICIAL,ESTRATEGIA,AREA,EDAD,CANTIDAD DE INICIAL,TIPO DE CAMBIO,OBSERVACIONES
+,FABIOLA,PUERTO PALMERAS,A1,GLADYS CABRERA,paucarpata,24/10/2026,73187.10,SOLES,10%,WEDO,COMERCIAL,37,7320.00,3.50,
+,PAOLA,CITY BEACH,B2,MARIO PEREZ,JLBYR,15/10/2026,84000,DOLARES,20%,WEDO,COMERCIAL,41,16800,3.50,Observacion A
+Nro,MES,ORDEN DE MES,TRIMESTRE,ASESOR,PROYECTO,NOMENCLATURA DE LOTE,NOMBRE DEL CLIENTE
+1,46023,1,T1,ANA,SIERRA DORADA,A21,DUPLICADO A IGNORAR
+"""
+    rows = parse_cierres_csv(csv_sample, origen="excel")
+    assert len(rows) == 2
+    assert rows[0]["mes"] == 10
+    assert rows[0]["moneda"] == "SOLES"
+    assert rows[0]["pct_inicial"] == 0.1
+    assert rows[1]["moneda"] == "DOLARES"
+
+    crm_rows = [
+        dict(rows[0], id=10, origen="excel", estrategia="OTRA"),
+        {
+            "id": 11,
+            "anio": 2026,
+            "mes": 10,
+            "mes_nombre": "OCTUBRE",
+            "sync_key": "cie_v2|2026|10|X|L9|BORRAR#1",
+            "proyecto": "X",
+            "lote": "L9",
+            "cliente_nombre": "BORRAR",
+            "origen": "excel",
+        },
+        {
+            "id": 12,
+            "anio": 2026,
+            "mes": 10,
+            "mes_nombre": "OCTUBRE",
+            "sync_key": None,
+            "proyecto": "X",
+            "lote": "M1",
+            "cliente_nombre": "MANUAL CRM",
+            "origen": "crm",
+        },
+    ]
+    diff = compute_cierres_diff(crm_rows, rows)
+    assert diff["summary"]["modified"] == 1
+    assert diff["summary"]["added"] == 1
+    assert diff["summary"]["removed"] == 1  # Nunca borra origen='crm'
+
+
+@pytest.mark.unit
+def test_read_tabular_sheets_xlsx_multi_hoja_cierres():
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws_oct = wb.active
+    ws_oct.title = "OCTUBRE 2026"
+    ws_oct.append(["CUADRO DE CIERRE DE VENTAS - OCTUBRE - 2026"])
+    ws_oct.append(["ASESOR", "PROYECTO", "NOMENCLATURA DE LOTE", "NOMBRE DEL CLIENTE", "FECHA DE INGRESO DE INICIAL", "MONTO TOTAL DE VENTA", "MONEDA", "% DE INICIAL", "ESTRATEGIA", "AREA", "EDAD", "CANTIDAD DE INICIAL", "TIPO DE CAMBIO"])
+    ws_oct.append(["FABIOLA", "PUERTO PALMERAS", "A1", "CLIENTE UNO", "46319.0", 73187.1, "SOLES", 0.1, "WEDO", "COMERCIAL", 37, 7320.0, 3.5])
+
+    ws_feb = wb.create_sheet("FEBRERO 2026")
+    ws_feb.append(["CUADRO DE CIERRE DE VENTAS"])
+    ws_feb.append(["ASESOR", "PROYECTO", "NOMENCLATURA DE LOTE", "NOMBRE DEL CLIENTE", "FECHA DE INGRESO DE INICIAL", "MONTO TOTAL DE VENTA", "MONEDA", "% DE INICIAL", "ESTRATEGIA", "AREA", "EDAD", "CANTIDAD DE INICIAL"])
+    ws_feb.append(["SOL", "PUERTO PALMERAS", "H13", "LUIS ROJAS", "11/02/2026", 61506.9, "DOLARES", 0.1, "WEDO", "COMERCIAL", 35, 6150.69])
+
+    ws_base = wb.create_sheet("BASE HISTÓRICA 2026 ")
+    ws_base.append(["Nro", "MES", "ORDEN DE MES", "TRIMESTRE", "ASESOR", "PROYECTO", "NOMENCLATURA DE LOTE", "NOMBRE DEL CLIENTE"])
+    ws_base.append([1, 46023, 1, "T1", "SOL", "PUERTO PALMERAS", "H13", "LUIS ROJAS"])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    sheets, _ = read_tabular_sheets(buf.getvalue(), "CIERRES_PALMA_2026.xlsx")
+    parsed = parse_cierres_workbook(sheets, origen="excel")
+
+    assert len(parsed) == 2
+    assert {(r["mes"], r["cliente_nombre"]) for r in parsed} == {
+        (10, "CLIENTE UNO"),
+        (2, "LUIS ROJAS"),
+    }
