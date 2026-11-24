@@ -13,16 +13,15 @@ import {
   Users,
   Target,
   CheckCircle2,
-  Home,
   Building2,
   Video,
   User,
   RotateCcw,
-  Link2,
-  ExternalLink,
 } from 'lucide-react'
 import useAuthStore from '@/store/authStore'
+import useBrandStore from '@/store/brandStore'
 import useManualApoyoStore from '@/store/manualApoyoStore'
+import { FICHA_TECNICA_FIELDS } from '@/lib/fichaTecnica'
 
 // Helper para copiar texto al portapapeles con feedback visual
 function useCopy() {
@@ -48,6 +47,7 @@ function useCopy() {
 
 export default function ManualApoyoDrawer() {
   const { user } = useAuthStore()
+  const brand = useBrandStore((s) => s.brand)
   const {
     isOpen,
     activeTab,
@@ -63,7 +63,7 @@ export default function ManualApoyoDrawer() {
   } = useManualApoyoStore()
 
   const { copiedKey, copyText } = useCopy()
-  const [miniPitchSubTab, setMiniPitchSubTab] = useState('interes') // 'interes' | 'motivacion'
+  const [miniPitchSubTab, setMiniPitchSubTab] = useState('lote') // 'lote' | 'objetivo'
   const searchInputRef = useRef(null)
   const contentContainerRef = useRef(null)
 
@@ -74,11 +74,14 @@ export default function ManualApoyoDrawer() {
     }
   }
 
+  const brandName = brand?.company_name || 'Palma del Río'
+  const brandLegalName = brand?.legal_name || 'Palma del Río Inmobiliaria'
+
   // Nombre por defecto del asesor tomado del perfil autenticado
   const defaultAsesor = useMemo(() => {
     if (asesorNombre?.trim()) return asesorNombre.trim()
     const name = [user?.first_name, user?.last_name].filter(Boolean).join(' ')
-    return name || 'Brenda González'
+    return name || 'Asesor Comercial'
   }, [asesorNombre, user])
 
   const prospecto = prospectoNombre?.trim() || 'Andrea'
@@ -97,242 +100,164 @@ export default function ManualApoyoDrawer() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, toggleManual, closeManual])
 
-  // Datos estructurados de los Mini Pitches
-  const miniPitchesInteres = useMemo(() => [
+  // Mini Pitches por tipo de lote / atributo del proyecto
+  const miniPitchesLote = useMemo(() => [
     {
-      id: 'interes-inmersion-1',
-      categoria: 'Metodología de inmersión (Opción 1)',
-      titulo: 'Enfoque comunicativo desde la 1ra clase',
-      guion: `“¡Justamente esa es nuestra gran diferencia! En Brighton no nos limitamos a la enseñanza tradicional. Trabajamos con una metodología de inmersión, donde recreamos situaciones como si estuvieras en el extranjero, para que tengas la necesidad de comunicarte en inglés desde tu primera clase. ¡Imagínate empezar a hablar inglés desde el primer día!”`,
+      id: 'lote-residencial',
+      categoria: 'Lote residencial / vivienda',
+      titulo: 'Construir tu hogar en zona tranquila y planificada',
+      guion: `“¡Excelente elección, ${prospecto}! Nuestros lotes residenciales están pensados para familias que buscan tranquilidad, áreas verdes y espacios bien distribuidos para construir su casa a su gusto. En la visita te muestro las ubicaciones disponibles en plano y cuál se adapta mejor a lo que imaginas.”`,
     },
     {
-      id: 'interes-inmersion-2',
-      categoria: 'Metodología de inmersión (Opción 2)',
-      titulo: 'Superar la gramática tradicional',
-      guion: `“Justamente eso es lo que buscamos cambiar en Brighton. No queremos que te quedes solamente aprendiendo reglas gramaticales, sino que vivas el idioma mediante experiencias de inmersión que te impulsen a comunicarte en inglés desde tu primera clase. ¡Imagínate lo diferente que sería aprender de esa manera!”`,
+      id: 'lote-inversion',
+      categoria: 'Lote de inversión / plusvalía',
+      titulo: 'Valorización progresiva y respaldo patrimonial',
+      guion: `“¡Muy buena visión! Invertir en tierra es una de las decisiones más seguras porque tu capital queda respaldado por un bien tangible que gana plusvalía conforme avanza el desarrollo y consolidación de la zona. Podemos revisar qué lotes estratégicos tienen mayor proyección de valorización.”`,
     },
     {
-      id: 'interes-talleres',
-      categoria: 'Talleres vivenciales',
-      titulo: 'Vivir el idioma en situaciones cotidianas',
-      guion: `“¡Qué bueno que te llamaron la atención! Nuestros talleres buscan que vivas el inglés, no solamente que lo estudies. Recreamos situaciones cotidianas para que practiques el idioma como si estuvieras en otro país, desarrollando tu comunicación de manera más natural.”`,
+      id: 'lote-comercial',
+      categoria: 'Lote en esquina / avenida o comercial',
+      titulo: 'Alta visibilidad para negocio o renta futura',
+      guion: `“¡Claro que sí! Contamos con ubicaciones estratégicas frente a vías principales o en esquina, ideales si estás pensando en combinar vivienda con negocio o generar ingresos por alquiler más adelante. Revisemos qué opciones siguen libres en esta etapa.”`,
     },
     {
-      id: 'interes-nativos',
-      categoria: 'Profesores nativos',
-      titulo: 'Pronunciación real y seguridad auditiva',
-      guion: `“¡Excelente! Aprender con profesores nativos te permite familiarizarte con la pronunciación, las expresiones y la manera natural de comunicarse en inglés. Es una oportunidad para desarrollar la parte auditiva y ganar seguridad al hablar.”`,
+      id: 'lote-financiamiento',
+      categoria: 'Financiamiento directo y cuotas',
+      titulo: 'Facilidades accesibles sin trabas bancarias',
+      guion: `“Justamente buscamos que adquirir tu lote sea alcanzable. Manejamos facilidades con financiamiento directo y cuotas cómodas para que puedas separar tu lote hoy mismo con una inicial accesible y sin trámites bancarios engorrosos.”`,
     },
     {
-      id: 'interes-grupos',
-      categoria: 'Grupos reducidos',
-      titulo: 'Participación activa y atención personalizada',
-      guion: `“¡Exactamente! En Brighton buscamos que nuestros alumnos participen activamente. Al trabajar con grupos reducidos, tienes mayores oportunidades de practicar, interactuar y recibir una atención más personalizada.”`,
+      id: 'lote-seguridad',
+      categoria: 'Documentación y respaldo legal',
+      titulo: 'Transparencia jurídica desde el primer día',
+      guion: `“Entiendo totalmente tu prioridad por la seguridad legal. En ${brandLegalName} te mostramos toda la documentación del proyecto con total transparencia para que tomes tu decisión con la tranquilidad de que tu inversión está protegida.”`,
+    },
+  ], [prospecto, brandLegalName])
+
+  // Mini Pitches por objetivo o situación del prospecto
+  const miniPitchesObjetivo = useMemo(() => [
+    {
+      id: 'obj-familia',
+      categoria: 'Casa propia / familia',
+      titulo: 'Patrimonio seguro y calidad de vida para los tuyos',
+      guion: `“¡Qué gran paso para ti y tu familia! Tener un terreno propio significa dejar de depender de alquileres y construir un patrimonio que quedará para tus hijos. Queremos acompañarte a elegir el lote ideal según el tamaño que necesitan.”`,
     },
     {
-      id: 'interes-14meses',
-      categoria: 'Inglés en 14 meses',
-      titulo: 'Programa estructurado con resultados',
-      guion: `“¡Claro! Nuestra propuesta contempla un programa de 14 meses. Lo interesante es que durante ese tiempo no solamente estudias contenidos, sino que participas en experiencias diseñadas para desarrollar tu comunicación en inglés desde el inicio.”`,
+      id: 'obj-inversionista',
+      categoria: 'Compra como inversión',
+      titulo: 'Aprovechar precios de etapa actual antes de revalorización',
+      guion: `“Cuando uno compra para invertir, el momento de entrada hace toda la diferencia. Asegurar un lote hoy te permite aprovechar los precios y campañas vigentes antes de los siguientes incrementos por avance del proyecto.”`,
     },
     {
-      id: 'interes-horarios',
-      categoria: 'Horarios programables',
-      titulo: 'Flexibilidad para estudios y trabajo',
-      guion: `“¡Esa es una gran ventaja! Sabemos que muchos alumnos trabajan o estudian, por eso contamos con opciones de programación de clases que permiten organizar mejor el aprendizaje de acuerdo con los horarios disponibles.”`,
+      id: 'obj-fuera-arequipa',
+      categoria: 'Cliente de otra ciudad / extranjero',
+      titulo: 'Asesoría virtual con planos, ubicación GPS y video',
+      guion: `“¡No hay ningún problema si estás fuera de Arequipa! Atendemos a muchos clientes de otros departamentos y del extranjero mediante videollamada por Zoom o Meet, mostrándote el plano en vivo, la ubicación exacta, fotos y videos del proyecto.”`,
     },
     {
-      id: 'interes-certificaciones',
-      categoria: 'Certificaciones internacionales',
-      titulo: 'Acreditación oficial para metas académicas/laborales',
-      guion: `“¡Muy buena elección! Hoy acreditar tu nivel de inglés puede ayudarte a acceder a oportunidades académicas y profesionales. Me gustaría explicarte las alternativas de certificación vinculadas a nuestro programa.”`,
+      id: 'obj-cotizando',
+      categoria: 'Está cotizando otros proyectos',
+      titulo: 'Comparar ubicación, metraje real y facilidades con criterio',
+      guion: `“¡Qué bueno que estés comparando opciones! Así tomas una decisión bien informada. Lo ideal es que conozcas nuestro proyecto en persona o en una reunión breve para comparar metraje real, proyección de la zona, documentación y facilidad de cuotas.”`,
+    },
+    {
+      id: 'obj-plazo',
+      categoria: 'Quiere comprar pronto o evaluar campaña',
+      titulo: 'Asegurar ubicación disponible antes que se separe',
+      guion: `“Como los lotes con mejor ubicación frente a parque o esquina suelen separarse primero, lo más recomendable es revisar hoy mismo la disponibilidad actualizada para que no pierdas la opción que más te conviene.”`,
     },
   ], [])
 
-  const miniPitchesMotivacion = useMemo(() => [
-    {
-      id: 'mot-trabajo',
-      categoria: 'Trabajo y crecimiento profesional',
-      titulo: 'Mejores puestos y desenvolvimiento en entrevistas',
-      guion: `“¡Qué bueno que estés pensando en tu crecimiento! Hoy el inglés puede marcar una diferencia importante para acceder a mejores puestos y oportunidades laborales. Imagínate poder desenvolverte con seguridad en una entrevista o reunión de trabajo en inglés.”`,
-    },
-    {
-      id: 'mot-posgrado',
-      categoria: 'Maestrías y posgrados',
-      titulo: 'Requisito clave y acreditación de posgrado',
-      guion: `“¡Excelente! Si estás pensando en una maestría o un posgrado, el inglés puede convertirse en una herramienta fundamental. Muchas oportunidades académicas requieren acreditar el idioma, y prepararte desde ahora puede acercarte a ese objetivo.”`,
-    },
-    {
-      id: 'mot-viaje',
-      categoria: 'Viajar al extranjero',
-      titulo: 'Autonomía para disfrutar sin traductor',
-      guion: `“¡Qué emocionante! Imagínate viajar y poder desenvolverte por tu cuenta, conversar con otras personas, pedir información y disfrutar de la experiencia sin depender constantemente de un traductor.”`,
-    },
-    {
-      id: 'mot-vivir',
-      categoria: 'Estudiar o vivir en el extranjero',
-      titulo: 'Adaptación fluida a situaciones reales',
-      guion: `“¡Qué gran proyecto! Si tienes pensado estudiar o vivir fuera del país, comunicarte en inglés puede facilitar muchísimo tu adaptación. Lo ideal es que empieces a familiarizarte con situaciones reales desde ahora.”`,
-    },
-    {
-      id: 'mot-anterior',
-      categoria: 'Experiencia anterior sin resultados',
-      titulo: 'Superar la frustración con un método vivencial',
-      guion: `“¡Te entiendo! Y justamente lo que necesitas es una experiencia de aprendizaje diferente. En Brighton buscamos que no te quedes solamente con la gramática, sino que puedas practicar el idioma en situaciones reales desde el inicio.”`,
-    },
-    {
-      id: 'mot-hijos',
-      categoria: 'Aprendizaje para sus hijos',
-      titulo: 'Inversión temprana en su desarrollo y futuro',
-      guion: `“¡Qué buena decisión! Aprender inglés desde pequeños puede brindarles herramientas muy valiosas para sus estudios y futuras oportunidades. Es una inversión en su desarrollo.”`,
-    },
-  ], [])
-
-  // Objeciones frecuentes
+  // Objeciones frecuentes en ventas inmobiliarias
   const objeciones = useMemo(() => [
     {
       id: 'obj-tiempo',
-      titulo: '“No tengo tiempo para reunirnos”',
-      subtitulo: 'Técnica de empatía y compromiso de 30 minutos',
-      guion: `“¡${prospecto}, ya somos dos! Te entiendo perfectamente. Hoy todos tenemos las agendas bastante ocupadas, entre el trabajo, la familia y nuestras responsabilidades.
-Pero dime algo: ¿crees que valdría la pena dedicar 30 minutos de tu tiempo para conocer una propuesta que podría ayudarte a aprender inglés y abrirte nuevas oportunidades?
-Eso es justamente lo que necesito: 30 minutos para mostrarte cómo funciona nuestra metodología de inmersión y qué alternativas tenemos para ti.
-Hagamos algo: acomodemos nuestras agendas. Yo reviso la mía y tú la tuya.
-¿Te quedaría mejor hoy al finalizar tu jornada o mañana antes de empezar tus actividades?
-¡Perfecto! Entonces quedamos para mañana a las 7:30 a. m. Valoro mucho que estés haciendo un espacio en tu agenda y voy a prepararte una asesoría personalizada para que aprovechemos al máximo esos 30 minutos.”`,
+      titulo: '“No tengo tiempo para ir al proyecto o reunirme”',
+      subtitulo: 'Técnica de empatía y propuesta flexible (visita corta o reunión virtual de 20 min)',
+      guion: `“¡${prospecto}, te entiendo perfectamente! Hoy todos andamos con el tiempo justo entre el trabajo y la familia.
+Precisamente por eso quiero ahorrarte vueltas: en una reunión breve de 20 minutos —ya sea en videollamada o coordinando una visita rápida al proyecto— te muestro directo los lotes disponibles según el tipo y presupuesto que buscas.
+Hagamos algo práctico: ¿te queda mejor hoy al final de tu jornada o este fin de semana en la mañana para hacer la visita o videollamada?
+¡Perfecto! Dejemos separado ese espacio y te envío los detalles para aprovechar al máximo tu tiempo.”`,
     },
     {
       id: 'obj-whatsapp',
-      titulo: '“Mándame todo por WhatsApp”',
-      subtitulo: 'Evitar saturación de información y posicionar el valor de la asesoría',
-      guion: `“¡Claro que sí, ${prospecto}! Con mucho gusto te puedo compartir información por WhatsApp.
-Pero te cuento algo: lo que he aprendido atendiendo a personas interesadas en aprender inglés es que enviarles toda la información de golpe no siempre funciona.
-Imagínate que te envío nuestra metodología, los talleres de inmersión, las modalidades, los horarios, los programas y los precios. ¡Terminaría enviándote tanta información que, en lugar de ayudarte, podría confundirte!
-Y sinceramente creo que mereces una atención mucho más personalizada.
-Tú estás buscando invertir en tu educación, ¿verdad? Entonces mereces conocer bien qué estás eligiendo y qué programa se adapta mejor a tus objetivos.
-Por eso prefiero dedicarte 30 minutos, explicarte nuestra propuesta académica y económica, resolver todas tus dudas y ayudarte a tomar una decisión bien informada.
-Hagamos algo, ${prospecto}: ¿hoy por la tarde a qué hora te quedaría bien que nos reunamos?”`,
+      titulo: '“Mándame toda la información y precios por WhatsApp”',
+      subtitulo: 'Evitar enviar precios aislados sin explicar ubicación, metraje y facilidades',
+      guion: `“¡Claro que sí, ${prospecto}! Con gusto te comparto la ubicación y el resumen por WhatsApp.
+Pero te soy sincero: enviarte solo una lista de precios sin explicarte el plano puede confundir más de lo que ayuda, porque el valor cambia según el metraje, si da a parque, avenida o esquina, y según la modalidad de pago o inicial que prefieras.
+Por eso prefiero dedicarte 15 a 20 minutos —en visita al proyecto o por videollamada— para mostrarte en plano qué lotes calzan exactamente con lo que buscas y las facilidades de cuotas vigentes.
+¿A qué hora de hoy te queda cómodo conversar o coordinar tu visita?”`,
     },
     {
       id: 'obj-precio',
-      titulo: '“Dime cuánto cuesta”',
-      subtitulo: 'Redirección del precio hacia la propuesta de valor integral y presupuesto',
-      guion: `“¡Claro que sí, ${prospecto}! Por supuesto que te voy a explicar nuestros precios.
-Pero antes, déjame hacerte una pregunta: cuando eliges dónde estudiar inglés, ¿crees que lo único importante es conocer el precio?
-¿O también te gustaría saber cómo es la metodología, quiénes son tus profesores, cómo funcionan nuestros talleres de inmersión, qué horarios tenemos y qué resultados de aprendizaje buscamos?
-Cuéntame, ${prospecto}, ¿lo que quieres saber principalmente es si nuestro programa está dentro de tu presupuesto?
-¡Perfecto! Y para orientarte mejor, ¿tienes pensado un presupuesto mensual para invertir en tus estudios?
+      titulo: '“Dime de frente cuánto cuesta el lote”',
+      subtitulo: 'Enmarcar el precio según metraje, ubicación y capacidad de inicial/cuota',
+      guion: `“¡Por supuesto, ${prospecto}! Justamente el precio depende del tipo de lote, el metraje y la ubicación dentro del proyecto.
+Para darte una cifra exacta y no un aproximado genérico, cuéntame:
+1. ¿Qué metraje o tipo de lote estás buscando (vivienda o inversión)?
+2. ¿Estás evaluando comprarlo al contado o con financiamiento directo en cuotas?
 [Escuchar respuesta]
-¡Excelente! Entonces me gustaría explicarte nuestra propuesta académica y económica, para que conozcas todos los beneficios de nuestro programa y las alternativas de pago disponibles.
-La idea es que conozcas no solamente cuánto cuesta estudiar en Brighton, sino también qué incluye el programa y cómo funciona nuestra metodología de inmersión.”`,
+¡Excelente! Con eso claro, te muestro en nuestra visita guiada —o en reunión por Zoom— las manzanas disponibles que se ajustan a tu presupuesto, la inicial desde la que puedes separar y cómo quedan las cuotas.”`,
     },
   ], [prospecto])
-
-  // Links de interés (Recorridos virtuales, Ubicaciones y Material de Sedes)
-  const linksDeInteres = useMemo(() => [
-    {
-      id: 'link-recorrido-jbyr',
-      titulo: 'Recorrido sede JBYR',
-      descripcion: 'Recorrido virtual en video de la sede José Luis Bustamante y Rivero',
-      url: 'https://drive.google.com/file/d/1jcGZS3HQd3hbWxxvcC5f7koREpIiGaBD/view?usp=sharing',
-      categoria: 'Sede Bustamante (JBYR)',
-      tipo: 'Recorrido',
-    },
-    {
-      id: 'link-umacollo-madelein',
-      titulo: 'Umacollo Madelein',
-      descripcion: 'Material y recursos audiovisuales de la sede Umacollo',
-      url: 'https://drive.google.com/file/d/1IgzR3zZAgdIflvUbLlUSy60TOf61EmDM/view?usp=sharing',
-      categoria: 'Sede Umacollo',
-      tipo: 'Material',
-    },
-    {
-      id: 'link-ubicacion-umacollo',
-      titulo: 'Ubicacion Brighton Umacollo',
-      descripcion: 'Referencia y ubicación de llegada en Calle González Prada 110, Umacollo',
-      url: 'https://drive.google.com/file/d/1rLkps_7V2GGLEbb4M7N9xXY433cpfSg0/view?usp=sharing',
-      categoria: 'Sede Umacollo',
-      tipo: 'Ubicación',
-    },
-    {
-      id: 'link-ubicacion-jbyr',
-      titulo: 'Ubicacion Brighton JBYR',
-      descripcion: 'Referencia y ubicación de llegada en Calle Danubio 233, Bustamante y Rivero',
-      url: 'https://drive.google.com/file/d/1ebBjJcBROwK0Te2SG7ZmDDUqTNzKqMHJ/view?usp=sharing',
-      categoria: 'Sede Bustamante (JBYR)',
-      tipo: 'Ubicación',
-    },
-    {
-      id: 'link-recorrido-umacollo',
-      titulo: 'Recorrido sede Umacollo',
-      descripcion: 'Recorrido virtual en video de la sede Umacollo',
-      url: 'https://drive.google.com/file/d/10iVWCXRsKgcD0osJdYLPOsgnCgHaS9Y_/view?usp=sharing',
-      categoria: 'Sede Umacollo',
-      tipo: 'Recorrido',
-    },
-  ], [])
 
   // Filtrado reactivo por texto de búsqueda
   const q = searchQuery.toLowerCase().trim()
   const matchText = (text) => (!q ? true : (text || '').toLowerCase().includes(q))
 
   const showPaso1 = (activeTab === 'todos' || activeTab === 'paso1') &&
-    (matchText('apertura presentacion brenda gonzalez brighton ingles nativo redes sociales') || matchText(prospecto))
+    (matchText(`apertura presentacion ${brandName} ${brandLegalName} lotes proyecto inmobiliario redes sociales`) || matchText(prospecto))
 
   const showPaso2 = (activeTab === 'todos' || activeTab === 'paso2') &&
-    (matchText('diagnostico preguntas no negociable motivacion beneficiario ubicacion experiencia previa necesidad actual inicio arequipa'))
+    (matchText('diagnostico perfilamiento preguntas no negociable arequipa distrito lote inversion cotizando proyectos') ||
+      FICHA_TECNICA_FIELDS.some((f) => matchText(f.label) || matchText(f.pregunta) || matchText(f.placeholder)))
 
   const showPaso3 = (activeTab === 'todos' || activeTab === 'paso3') &&
-    (miniPitchesInteres.some((p) => matchText(p.categoria) || matchText(p.guion)) ||
-     miniPitchesMotivacion.some((p) => matchText(p.categoria) || matchText(p.guion)))
+    (miniPitchesLote.some((p) => matchText(p.categoria) || matchText(p.titulo) || matchText(p.guion)) ||
+      miniPitchesObjetivo.some((p) => matchText(p.categoria) || matchText(p.titulo) || matchText(p.guion)))
 
   const showPaso4 = (activeTab === 'todos' || activeTab === 'paso4') &&
-    (matchText('cita visita domiciliaria arequipa oficinas brighton umacollo bustamante zoom meet gonzalez prada danubio'))
+    (matchText('cita visita proyecto arequipa oficina planos zoom meet videollamada terreno lotes'))
 
   const showPaso5 = (activeTab === 'todos' || activeTab === 'paso5') &&
-    (matchText('autonomia decision economica academica esposo familia'))
+    (matchText('autonomia decision economica familiar conyuge pareja socio separacion lote'))
 
   const showPaso6 = (activeTab === 'todos' || activeTab === 'paso6') &&
-    (matchText('confirmacion asentamiento propuesta academica matricula whatsapp'))
+    (matchText('confirmacion asentamiento visita proyecto oficina separacion reserva plano whatsapp'))
 
   const showObjeciones = (activeTab === 'todos' || activeTab === 'objeciones') &&
-    objeciones.some((o) => matchText(o.titulo) || matchText(o.guion))
-
-  const showLinks = (activeTab === 'todos' || activeTab === 'links') &&
-    (matchText('links') || matchText('interes') || matchText('enlaces') || matchText('recorrido') || matchText('ubicacion') || matchText('jbyr') || matchText('bustamante') || matchText('umacollo') || matchText('madelein') || linksDeInteres.some((l) => matchText(l.titulo) || matchText(l.descripcion) || matchText(l.categoria)))
+    objeciones.some((o) => matchText(o.titulo) || matchText(o.subtitulo) || matchText(o.guion))
 
   const tabs = [
     { key: 'todos', label: 'Todos' },
     { key: 'paso1', label: '1. Apertura' },
-    { key: 'paso2', label: '2. Diagnóstico' },
+    { key: 'paso2', label: '2. Perfilamiento' },
     { key: 'paso3', label: '3. Mini Pitch' },
-    { key: 'paso4', label: '4. Citas' },
+    { key: 'paso4', label: '4. Visitas y Citas' },
     { key: 'paso5', label: '5. Decisión' },
     { key: 'paso6', label: '6. Confirmación' },
     { key: 'objeciones', label: 'Objeciones (3)' },
-    { key: 'links', label: 'Links de Interés (5)', icon: Link2 },
   ]
 
   return (
     <>
       {/* ─────────────────────────────────────────────────────────────
-          BOTÓN FLOTANTE EN LA PARTE DERECHA DE LA PLATAFORMA (#df2029)
-          Visible en toda la aplicación, fijado en el borde derecho
+          BOTÓN FLOTANTE EN LA PARTE DERECHA DE LA PLATAFORMA (#1F1D5C)
           ───────────────────────────────────────────────────────────── */}
       <div className="fixed right-0 top-1/2 -translate-y-1/2 z-40 select-none">
         <button
           type="button"
           onClick={toggleManual}
-          title="Manual de Apoyo Telefónico (Alt+M)"
-          aria-label="Abrir manual de apoyo telefónico"
-          style={{ backgroundColor: isOpen ? '#b8151d' : '#df2029' }}
-          className={`flex items-center gap-2 pl-2.5 pr-2 py-3.5 rounded-l-2xl border-y border-l shadow-2xl transition-all duration-200 cursor-pointer group text-white border-red-300/40 ${
+          title="Manual de Guiones Comerciales (Alt+M)"
+          aria-label="Abrir manual de guiones comerciales"
+          style={{ backgroundColor: isOpen ? '#161445' : '#1F1D5C' }}
+          className={`flex items-center gap-2 pl-2.5 pr-2 py-3.5 rounded-l-2xl border-y border-l shadow-2xl transition-all duration-200 cursor-pointer group text-white border-indigo-300/40 ${
             isOpen ? 'translate-x-1' : 'hover:-translate-x-1 hover:brightness-110'
           }`}
         >
           <div className="relative flex items-center justify-center">
             <PhoneCall size={18} className="text-white group-hover:scale-110 transition-transform" />
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#df2029] animate-pulse" />
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#1F1D5C] animate-pulse" />
           </div>
           <span className="[writing-mode:vertical-rl] rotate-180 text-[11px] font-bold tracking-wider uppercase">
             Manual de Guiones
@@ -340,9 +265,7 @@ La idea es que conozcas no solamente cuánto cuesta estudiar en Brighton, sino t
         </button>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────
-          BACKDROP OVERLAY
-          ───────────────────────────────────────────────────────────── */}
+      {/* BACKDROP OVERLAY */}
       {isOpen && (
         <div
           onClick={closeManual}
@@ -351,14 +274,12 @@ La idea es que conozcas no solamente cuánto cuesta estudiar en Brighton, sino t
         />
       )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          DRAWER / PANEL DESPLEGABLE DESDE LA DERECHA
-          ───────────────────────────────────────────────────────────── */}
+      {/* DRAWER / PANEL DESPLEGABLE DESDE LA DERECHA */}
       <aside
         className={`fixed inset-y-0 right-0 z-50 flex flex-col w-full sm:w-[580px] md:w-[680px] bg-white dark:bg-[#0f1624] text-slate-900 dark:text-slate-100 shadow-2xl border-l border-slate-200 dark:border-slate-800 transform transition-transform duration-300 ease-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
-        aria-label="Manual de apoyo telefónico"
+        aria-label="Manual de guiones comerciales inmobiliarios"
         role="dialog"
         aria-modal="true"
       >
@@ -367,28 +288,27 @@ La idea es que conozcas no solamente cuánto cuesta estudiar en Brighton, sino t
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div
-                style={{ backgroundColor: '#df2029' }}
-                className="w-9 h-9 rounded-xl text-white flex items-center justify-center shadow-md shadow-[#df2029]/30 shrink-0"
+                style={{ backgroundColor: '#1F1D5C' }}
+                className="w-9 h-9 rounded-xl text-white flex items-center justify-center shadow-md shadow-[#1F1D5C]/30 shrink-0"
               >
                 <BookOpen size={18} />
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
-                    style={{ color: '#df2029', borderColor: '#df2029' }}
-                    className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-red-50 dark:bg-[#df2029]/20 border border-opacity-30"
+                    className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full text-[#1F1D5C] dark:text-indigo-300 bg-[#1F1D5C]/10 dark:bg-[#1F1D5C]/40 border border-[#1F1D5C]/30 dark:border-indigo-400/30"
                   >
-                    Brighton Inglés Nativo
+                    {brandLegalName}
                   </span>
                   <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
                     Alt + M
                   </span>
                 </div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight mt-0.5">
-                  Anexo de Guiones · Estructura de Llamada
+                  Anexo de Guiones · Llamada Inmobiliaria
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Gestión Leads TikTok · Instagram · Facebook · Web
+                  Gestión Leads TikTok · Instagram · Facebook · Web · Referidos
                 </p>
               </div>
             </div>
@@ -406,7 +326,7 @@ La idea es que conozcas no solamente cuánto cuesta estudiar en Brighton, sino t
           {/* BARRA DE PERSONALIZACIÓN DINÁMICA (PROSPECTO Y ASESOR) */}
           <div className="mt-3.5 pt-3 border-t border-slate-200/80 dark:border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <div className="flex items-center gap-2 bg-white dark:bg-[#0c121d] px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800">
-              <User size={13} style={{ color: '#df2029' }} className="shrink-0" />
+              <User size={13} style={{ color: '#1F1D5C' }} className="shrink-0" />
               <span className="text-slate-500 font-medium shrink-0">Prospecto:</span>
               <input
                 type="text"
@@ -448,8 +368,8 @@ La idea es que conozcas no solamente cuánto cuesta estudiar en Brighton, sino t
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar en guiones (ej: zoom, precio, umacollo, inmersión, no tengo tiempo)..."
-              className="w-full pl-8 pr-8 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0c121d] text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#df2029]"
+              placeholder="Buscar en guiones (ej: lote, visita, precio, inversión, separación, zoom)..."
+              className="w-full pl-8 pr-8 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0c121d] text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#1F1D5C]"
             />
             {searchQuery && (
               <button
@@ -462,24 +382,22 @@ La idea es que conozcas no solamente cuánto cuesta estudiar en Brighton, sino t
             )}
           </div>
 
-          {/* PESTAÑAS DE NAVEGACIÓN RÁPIDA (FONDOS #df2029) */}
+          {/* PESTAÑAS DE NAVEGACIÓN RÁPIDA */}
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5 pt-0.5">
             {tabs.map((tab) => {
               const active = activeTab === tab.key
-              const Icon = tab.icon
               return (
                 <button
                   key={tab.key}
                   type="button"
                   onClick={() => handleSelectTab(tab.key)}
-                  style={active ? { backgroundColor: '#df2029' } : {}}
+                  style={active ? { backgroundColor: '#1F1D5C' } : {}}
                   className={`text-xs px-2.5 py-1 rounded-md font-medium whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                     active
                       ? 'text-white shadow-xs font-semibold scale-[1.02]'
                       : 'bg-slate-200/70 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
                   }`}
                 >
-                  {Icon && <Icon size={12} className="shrink-0" />}
                   <span>{tab.label}</span>
                 </button>
               )
@@ -490,15 +408,13 @@ La idea es que conozcas no solamente cuánto cuesta estudiar en Brighton, sino t
         {/* CONTENIDO CON SCROLL */}
         <div ref={contentContainerRef} className="flex-1 overflow-y-scroll wa-scrollbar p-5 space-y-6">
 
-          {/* ─────────────────────────────────────────────────────────────
-              PASO 1 : APERTURA Y PRESENTACION
-              ───────────────────────────────────────────────────────────── */}
+          {/* PASO 1: APERTURA Y PRESENTACIÓN */}
           {showPaso1 && (
             <section className="space-y-3 rounded-xl p-4 bg-slate-50 dark:bg-[#131d30] border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span
-                    style={{ backgroundColor: '#df2029' }}
+                    style={{ backgroundColor: '#1F1D5C' }}
                     className="w-6 h-6 rounded-lg text-white text-xs font-bold flex items-center justify-center shadow-xs"
                   >
                     1
@@ -512,53 +428,46 @@ La idea es que conozcas no solamente cuánto cuesta estudiar en Brighton, sino t
                   onClick={() =>
                     copyText(
                       'p1',
-                      `“Hola, ¿${prospecto}?, ¿cómo estas?
-Soy ${defaultAsesor} de Brighton Inglés Nativo. Te tenemos registrada en nuestro sistema porque nos dejaste tus datos a través de nuestras redes sociales, interesada en aprender inglés. ¿Correcto?
-¡Que bueno!”`
+                      `“Hola, ¿${prospecto}?, ¿cómo estás?\nSoy ${defaultAsesor} de ${brandLegalName}. Te tenemos registrado en nuestro sistema porque nos dejaste tus datos a través de nuestras redes sociales interesado en nuestros lotes y proyectos inmobiliarios, ¿correcto?\n¡Qué bueno!”`
                     )
                   }
-                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#df2029] dark:hover:text-[#ff6b72] transition-colors shadow-xs"
+                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#1F1D5C] dark:hover:text-indigo-300 transition-colors shadow-xs"
                 >
                   {copiedKey === 'p1' ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
                   <span>{copiedKey === 'p1' ? '¡Copiado!' : 'Copiar'}</span>
                 </button>
               </div>
 
-              {/* Burbuja de Guión */}
               <div
-                style={{ borderLeftColor: '#df2029' }}
+                style={{ borderLeftColor: '#1F1D5C' }}
                 className="relative pl-3 border-l-3 space-y-2 text-sm leading-relaxed text-slate-800 dark:text-slate-200 bg-white dark:bg-[#0c121d] p-3 rounded-r-lg border-y border-r border-slate-200 dark:border-slate-800"
               >
-                <p style={{ color: '#df2029' }} className="font-semibold text-xs">
+                <p style={{ color: '#1F1D5C' }} className="font-semibold text-xs">
                   Asesor ({defaultAsesor}):
                 </p>
-                <p>“Hola, ¿<span className="font-bold underline decoration-[#df2029]">{prospecto}</span>?, ¿cómo estas?</p>
+                <p>“Hola, ¿<span className="font-bold underline decoration-[#1F1D5C]">{prospecto}</span>?, ¿cómo estás?</p>
                 <p>
-                  Soy <span className="font-bold">{defaultAsesor}</span> de Brighton Inglés Nativo. Te tenemos registrada en nuestro sistema porque nos dejaste tus datos a través de nuestras redes sociales, interesada en aprender inglés. ¿Correcto?
+                  Soy <span className="font-bold">{defaultAsesor}</span> de {brandLegalName}. Te tenemos registrado en nuestro sistema porque nos dejaste tus datos a través de nuestras redes sociales interesado en nuestros lotes y proyectos inmobiliarios, ¿correcto?
                 </p>
-                <p className="font-medium text-emerald-600 dark:text-emerald-400">¡Que bueno!”</p>
+                <p className="font-medium text-emerald-600 dark:text-emerald-400">¡Qué bueno!”</p>
               </div>
             </section>
           )}
 
-          {/* ─────────────────────────────────────────────────────────────
-              PASO 2 : DIAGNÓSTICO - PREGUNTAS NO NEGOCIABLES
-              ───────────────────────────────────────────────────────────── */}
+          {/* PASO 2: PERFILAMIENTO - PREGUNTAS CLAVE DE LA FICHA TÉCNICA */}
           {showPaso2 && (
             <section className="space-y-3 rounded-xl p-4 bg-slate-50 dark:bg-[#131d30] border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span
-                    style={{ backgroundColor: '#df2029' }}
+                    style={{ backgroundColor: '#1F1D5C' }}
                     className="w-6 h-6 rounded-lg text-white text-xs font-bold flex items-center justify-center shadow-xs"
                   >
                     2
                   </span>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                      Paso 2: Diagnóstico - Preguntas No Negociables
-                    </h3>
-                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">
+                    Paso 2: Perfilamiento - Ficha Técnica ({FICHA_TECNICA_FIELDS.length} Preguntas)
+                  </h3>
                 </div>
                 <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
                   Obligatorias
@@ -568,56 +477,31 @@ Soy ${defaultAsesor} de Brighton Inglés Nativo. Te tenemos registrada en nuestr
               <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 p-2.5 rounded-lg text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2">
                 <Target size={14} className="text-amber-600 shrink-0 mt-0.5" />
                 <p>
-                  <span className="font-bold">Objetivo:</span> conocer la motivación del prospecto y generar una conversación natural.
+                  <span className="font-bold">Objetivo:</span> identificar qué tipo de lote busca el cliente, su ubicación, si compara proyectos y en qué plazo planea adquirirlo (sincronizado con la Ficha Técnica del lead).
                 </p>
               </div>
 
               <div className="grid grid-cols-1 gap-2 pt-1 text-xs">
-                {[
-                  {
-                    cat: 'Motivación',
-                    q: '¿Qué fue lo que más te llamó la atención de nuestra publicidad? / ¿Qué te animó a contactarnos?',
-                  },
-                  {
-                    cat: 'Beneficiario',
-                    q: '¿El interés por aprender inglés es para ti o para algún miembro de tu familia?',
-                  },
-                  {
-                    cat: 'Ubicación',
-                    q: '¿Te encuentras en Arequipa o en otra ciudad? ¿En qué distrito?',
-                  },
-                  {
-                    cat: 'Experiencia previa',
-                    q: '¿Anteriormente habías intentado estudiar inglés? ¿Dónde estudiaste? ¿Qué pasó? ¿Por qué crees que no lograste aprender?',
-                  },
-                  {
-                    cat: 'Necesidad actual',
-                    q: '¿Por qué es importante para ti aprender inglés hoy? ¿A qué te dedicas actualmente?',
-                  },
-                  {
-                    cat: 'Inicio',
-                    q: '¿Para cuándo te gustaría empezar?',
-                  },
-                ].map((item, idx) => (
+                {FICHA_TECNICA_FIELDS.map((item, idx) => (
                   <div
-                    key={idx}
-                    className="p-2.5 rounded-lg bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 flex items-start justify-between gap-2 hover:border-[#df2029]/50 transition-colors"
+                    key={item.key}
+                    className="p-2.5 rounded-lg bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 flex items-start justify-between gap-2 hover:border-[#1F1D5C]/50 transition-colors"
                   >
                     <div className="space-y-1">
                       <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                        {item.cat}
+                        {idx + 1}. {item.label}
                       </span>
                       <p className="text-slate-800 dark:text-slate-200 font-medium text-xs leading-snug">
-                        {item.q}
+                        {item.pregunta}
                       </p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => copyText(`p2-${idx}`, item.q)}
-                      className="p-1 rounded text-slate-400 hover:text-[#df2029] transition-colors shrink-0"
+                      onClick={() => copyText(`p2-${item.key}`, item.pregunta)}
+                      className="p-1 rounded text-slate-400 hover:text-[#1F1D5C] transition-colors shrink-0"
                       title="Copiar pregunta"
                     >
-                      {copiedKey === `p2-${idx}` ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                      {copiedKey === `p2-${item.key}` ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
                     </button>
                   </div>
                 ))}
@@ -625,65 +509,61 @@ Soy ${defaultAsesor} de Brighton Inglés Nativo. Te tenemos registrada en nuestr
             </section>
           )}
 
-          {/* ─────────────────────────────────────────────────────────────
-              PASO 3 : MINI PITCH
-              ───────────────────────────────────────────────────────────── */}
+          {/* PASO 3: MINI PITCH INMOBILIARIO */}
           {showPaso3 && (
             <section className="space-y-3 rounded-xl p-4 bg-slate-50 dark:bg-[#131d30] border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span
-                    style={{ backgroundColor: '#df2029' }}
+                    style={{ backgroundColor: '#1F1D5C' }}
                     className="w-6 h-6 rounded-lg text-white text-xs font-bold flex items-center justify-center shadow-xs"
                   >
                     3
                   </span>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                    Paso 3: Mini Pitch
+                    Paso 3: Mini Pitch de Valor
                   </h3>
                 </div>
 
-                {/* Sub-tabs selector */}
                 <div className="flex items-center p-0.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-xs">
                   <button
                     type="button"
-                    onClick={() => setMiniPitchSubTab('interes')}
+                    onClick={() => setMiniPitchSubTab('lote')}
                     className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                      miniPitchSubTab === 'interes'
-                        ? 'bg-white dark:bg-[#0c121d] text-[#df2029] dark:text-[#ff6b72] shadow-xs'
+                      miniPitchSubTab === 'lote'
+                        ? 'bg-white dark:bg-[#0c121d] text-[#1F1D5C] dark:text-indigo-300 shadow-xs'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                     }`}
                   >
-                    Por Motivo de Interés ({miniPitchesInteres.length})
+                    Por Tipo / Beneficio ({miniPitchesLote.length})
                   </button>
                   <button
                     type="button"
-                    onClick={() => setMiniPitchSubTab('motivacion')}
+                    onClick={() => setMiniPitchSubTab('objetivo')}
                     className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                      miniPitchSubTab === 'motivacion'
-                        ? 'bg-white dark:bg-[#0c121d] text-[#df2029] dark:text-[#ff6b72] shadow-xs'
+                      miniPitchSubTab === 'objetivo'
+                        ? 'bg-white dark:bg-[#0c121d] text-[#1F1D5C] dark:text-indigo-300 shadow-xs'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                     }`}
                   >
-                    Por Motivación del Prospecto ({miniPitchesMotivacion.length})
+                    Por Objetivo del Cliente ({miniPitchesObjetivo.length})
                   </button>
                 </div>
               </div>
 
-              {/* LISTA DE MINI PITCHES SEGÚN SUBTAB */}
               <div className="space-y-2.5 pt-1">
-                {(miniPitchSubTab === 'interes' ? miniPitchesInteres : miniPitchesMotivacion)
+                {(miniPitchSubTab === 'lote' ? miniPitchesLote : miniPitchesObjetivo)
                   .filter((p) => matchText(p.categoria) || matchText(p.guion) || matchText(p.titulo))
                   .map((pitch) => (
                     <div
                       key={pitch.id}
-                      className="p-3 rounded-lg bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 space-y-2 hover:border-[#df2029]/40 transition-all"
+                      className="p-3 rounded-lg bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 space-y-2 hover:border-[#1F1D5C]/40 transition-all"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <span
-                            style={{ color: '#df2029' }}
-                            className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-red-50 dark:bg-[#df2029]/20 border border-red-200 dark:border-[#df2029]/30"
+                            style={{ color: '#1F1D5C' }}
+                            className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-[#1F1D5C]/10 dark:bg-[#1F1D5C]/30 border border-[#1F1D5C]/25 dark:border-indigo-400/30"
                           >
                             {pitch.categoria}
                           </span>
@@ -703,7 +583,7 @@ Soy ${defaultAsesor} de Brighton Inglés Nativo. Te tenemos registrada en nuestr
                       </div>
 
                       <p
-                        style={{ borderLeftColor: '#df2029' }}
+                        style={{ borderLeftColor: '#1F1D5C' }}
                         className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed italic border-l-2 pl-2.5"
                       >
                         {pitch.guion}
@@ -714,192 +594,108 @@ Soy ${defaultAsesor} de Brighton Inglés Nativo. Te tenemos registrada en nuestr
             </section>
           )}
 
-          {/* ─────────────────────────────────────────────────────────────
-              PASO 4: GENERACION DE LA CITA
-              ───────────────────────────────────────────────────────────── */}
+          {/* PASO 4: GENERACIÓN DE VISITA AL PROYECTO / CITA */}
           {showPaso4 && (
             <section className="space-y-3 rounded-xl p-4 bg-slate-50 dark:bg-[#131d30] border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span
-                    style={{ backgroundColor: '#df2029' }}
+                    style={{ backgroundColor: '#1F1D5C' }}
                     className="w-6 h-6 rounded-lg text-white text-xs font-bold flex items-center justify-center shadow-xs"
                   >
                     4
                   </span>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                    Paso 4: Generación de la Cita
+                    Paso 4: Agendamiento de Visita o Cita
                   </h3>
                 </div>
                 <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                  Cierre de cita
+                  Cierre de visita / cita
                 </span>
               </div>
 
               <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/60 p-2.5 rounded-lg text-xs text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
                 <Target size={14} className="text-emerald-600 shrink-0 mt-0.5" />
                 <p>
-                  <span className="font-bold">Objetivo:</span> convertir el interés del prospecto en una cita concreta, <strong className="underline">priorizando la visita domiciliaria</strong>.
+                  <span className="font-bold">Objetivo:</span> convertir el interés en una <strong className="underline">visita guiada al proyecto</strong> (prioridad para clientes en Arequipa) o en una cita en oficina / virtual.
                 </p>
               </div>
 
-              {/* OPCION 1: VISITA DOMICILIARIA (#df2029) */}
+              {/* OPCIÓN 1: VISITA AL PROYECTO */}
               <div
-                style={{ borderColor: 'rgba(223, 32, 41, 0.35)' }}
+                style={{ borderColor: 'rgba(31, 29, 92, 0.35)' }}
                 className="p-3.5 rounded-lg bg-white dark:bg-[#0c121d] border-2 space-y-2"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <Home size={16} style={{ color: '#df2029' }} />
+                    <MapPin size={16} style={{ color: '#1F1D5C' }} />
                     <span
-                      style={{ color: '#df2029' }}
+                      style={{ color: '#1F1D5C' }}
                       className="text-xs font-bold uppercase tracking-wide"
                     >
-                      1. Primera opción: Visita domiciliaria (Prioridad 1)
+                      1. Primera opción: Visita guiada al proyecto (Prioridad 1)
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() =>
                       copyText(
-                        'p4-domicilio',
-                        `“${prospecto}, por teléfono sería complicado explicarte todos los detalles de nuestro programa, por eso me gustaría que podamos reunirnos personalmente. De hecho, tenemos la posibilidad de visitarte en tu domicilio para brindarte una asesoría personalizada. Hoy por la tarde, ¿a qué hora te queda bien que nos reunamos?
-¡Perfecto! ¿Me indicas, por favor, tu dirección y alguna referencia para poder llegar sin inconvenientes? ¿Manejas algún otro número de celular donde podamos contactarte en caso de algún inconveniente con la señal o batería?
-¡Genial! Entonces voy a agendar nuestra visita.”`
+                        'p4-visita',
+                        `“${prospecto}, por teléfono es difícil que aprecies la ubicación exacta, las vistas y los lotes disponibles. Por eso lo mejor es coordinar una visita guiada al proyecto para que veas el terreno en persona, recorras las manzanas libres y revisemos juntos precios y facilidades de pago.\n¿Te queda mejor visitarnos hoy por la tarde o mañana en la mañana? ¿Irás por tu cuenta o coordinamos punto de encuentro?”`
                       )
                     }
-                    style={{ color: '#df2029' }}
-                    className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 dark:bg-[#df2029]/15 dark:hover:bg-[#df2029]/25 transition-colors"
+                    style={{ color: '#1F1D5C' }}
+                    className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-[#1F1D5C]/10 hover:bg-[#1F1D5C]/20 dark:bg-[#1F1D5C]/30 dark:hover:bg-[#1F1D5C]/45 transition-colors"
                   >
-                    {copiedKey === 'p4-domicilio' ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
-                    <span>{copiedKey === 'p4-domicilio' ? '¡Copiado!' : 'Copiar'}</span>
+                    {copiedKey === 'p4-visita' ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                    <span>{copiedKey === 'p4-visita' ? '¡Copiado!' : 'Copiar'}</span>
                   </button>
                 </div>
                 <div
-                  style={{ borderLeftColor: '#df2029' }}
+                  style={{ borderLeftColor: '#1F1D5C' }}
                   className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed italic border-l-2 pl-2.5 space-y-1.5"
                 >
                   <p>
-                    “<span className="font-bold">{prospecto}</span>, por teléfono sería complicado explicarte todos los detalles de nuestro programa, por eso me gustaría que podamos reunirnos personalmente. De hecho, tenemos la posibilidad de visitarte en tu domicilio para brindarte una asesoría personalizada. Hoy por la tarde, ¿a qué hora te queda bien que nos reunamos?
-                  </p>
-                  <p>
-                    ¡Perfecto! ¿Me indicas, por favor, tu dirección y alguna referencia para poder llegar sin inconvenientes? ¿Manejas algún otro número de celular donde podamos contactarte en caso de algún inconveniente con la señal o batería?
+                    “<span className="font-bold">{prospecto}</span>, por teléfono es difícil que aprecies la ubicación exacta, las vistas y los lotes disponibles. Por eso lo mejor es coordinar una visita guiada al proyecto para que veas el terreno en persona, recorras las manzanas libres y revisemos juntos precios y facilidades de pago.”
                   </p>
                   <p className="font-semibold text-emerald-600 dark:text-emerald-400">
-                    ¡Genial! Entonces voy a agendar nuestra visita.”
+                    “¿Te queda mejor visitarnos hoy por la tarde o mañana en la mañana? ¿Irás por tu cuenta o coordinamos punto de encuentro?”
                   </p>
                 </div>
               </div>
 
-              {/* OPCION 2: SEDES BRIGHTON */}
-              <div className="p-3.5 rounded-lg bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 space-y-2.5">
+              {/* OPCIÓN 2: CITA EN OFICINA */}
+              <div className="p-3.5 rounded-lg bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Building2 size={16} className="text-slate-600 dark:text-slate-400" />
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
-                      2. Segunda opción: Cita en oficinas Brighton
+                      2. Segunda opción: Cita presencial en oficina
                     </span>
                   </div>
-                  <span className="text-[10px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900">
-                    Solo si objeta: «Prefiero visitarlos en su oficina»
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      copyText(
+                        'p4-oficina',
+                        `“¡Perfecto, ${prospecto}! Si prefieres primero revisar planos, disponibilidad y simulación de cuotas con calma en oficina antes de subir al proyecto, podemos reunirnos personalmente en nuestra oficina de ${brandName}. Hoy o mañana, ¿a qué hora te queda mejor acercarte?”`
+                      )
+                    }
+                    className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#1F1D5C]"
+                  >
+                    {copiedKey === 'p4-oficina' ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                    <span>{copiedKey === 'p4-oficina' ? '¡Copiado!' : 'Copiar'}</span>
+                  </button>
                 </div>
 
-                <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed italic border-l-2 border-slate-400 pl-2.5 space-y-1">
+                <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed italic border-l-2 border-slate-400 pl-2.5">
                   <p>
-                    “¡Claro que sí, <span className="font-bold">{prospecto}</span>! No hay ningún problema. Nosotros contamos con dos oficinas en Arequipa: nuestra sede de Umacollo y nuestra sede de Bustamante. ¿Cuál de las dos te queda mejor?”
+                    “¡Perfecto, <span className="font-bold">{prospecto}</span>! Si prefieres primero revisar planos, disponibilidad y simulación de cuotas con calma en oficina antes de ir al proyecto, podemos reunirnos personalmente en nuestra oficina de {brandName}. Hoy o mañana, ¿a qué hora te queda mejor acercarte?”
                   </p>
-                </div>
-
-                {/* TARJETAS DE SEDES CON DIRECCIONES Y COPIADO */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
-                  <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span style={{ color: '#df2029' }} className="font-bold flex items-center gap-1">
-                        <MapPin size={12} /> Sede Umacollo
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => copyText('dir-umacollo', 'Calle González Prada 110, Umacollo, Arequipa')}
-                        className="p-1 rounded text-slate-400 hover:text-[#df2029]"
-                        title="Copiar dirección"
-                      >
-                        {copiedKey === 'dir-umacollo' ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
-                      </button>
-                    </div>
-                    <p className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
-                      Calle González Prada 110
-                    </p>
-                    <p className="text-[11px] text-slate-500 italic">
-                      “¡Perfecto! Nuestra sede de Umacollo se encuentra en calle González Prada 110. Te voy a compartir la ubicación para que puedas llegar sin inconvenientes. Hoy, ¿a qué hora te quedaría bien acercarte?”
-                    </p>
-                    <div className="pt-1 flex items-center gap-1.5 flex-wrap border-t border-slate-200/60 dark:border-slate-800 text-[10px]">
-                      <button
-                        type="button"
-                        onClick={() => copyText('sede-link-ub-uma', 'https://drive.google.com/file/d/1rLkps_7V2GGLEbb4M7N9xXY433cpfSg0/view?usp=sharing')}
-                        className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#df2029]"
-                        title="Copiar link de ubicación"
-                      >
-                        {copiedKey === 'sede-link-ub-uma' ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
-                        <span>{copiedKey === 'sede-link-ub-uma' ? '¡Copiado!' : 'Link Ubicación'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => copyText('sede-link-rec-uma', 'https://drive.google.com/file/d/10iVWCXRsKgcD0osJdYLPOsgnCgHaS9Y_/view?usp=sharing')}
-                        className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#df2029]"
-                        title="Copiar link de recorrido virtual"
-                      >
-                        {copiedKey === 'sede-link-rec-uma' ? <Check size={10} className="text-emerald-500" /> : <Video size={10} />}
-                        <span>{copiedKey === 'sede-link-rec-uma' ? '¡Copiado!' : 'Link Recorrido'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span style={{ color: '#df2029' }} className="font-bold flex items-center gap-1">
-                        <MapPin size={12} /> Sede Bustamante
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => copyText('dir-bustamante', 'Calle Danubio 233, José Luis Bustamante y Rivero, Arequipa')}
-                        className="p-1 rounded text-slate-400 hover:text-[#df2029]"
-                        title="Copiar dirección"
-                      >
-                        {copiedKey === 'dir-bustamante' ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
-                      </button>
-                    </div>
-                    <p className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
-                      Calle Danubio 233
-                    </p>
-                    <p className="text-[11px] text-slate-500 italic">
-                      “¡Perfecto! Nuestra sede de Bustamante se encuentra en calle Danubio 233. Te voy a compartir la ubicación para que puedas llegar sin inconvenientes. Hoy, ¿a qué hora te quedaría bien acercarte?”
-                    </p>
-                    <div className="pt-1 flex items-center gap-1.5 flex-wrap border-t border-slate-200/60 dark:border-slate-800 text-[10px]">
-                      <button
-                        type="button"
-                        onClick={() => copyText('sede-link-ub-jbyr', 'https://drive.google.com/file/d/1ebBjJcBROwK0Te2SG7ZmDDUqTNzKqMHJ/view?usp=sharing')}
-                        className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#df2029]"
-                        title="Copiar link de ubicación"
-                      >
-                        {copiedKey === 'sede-link-ub-jbyr' ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
-                        <span>{copiedKey === 'sede-link-ub-jbyr' ? '¡Copiado!' : 'Link Ubicación'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => copyText('sede-link-rec-jbyr', 'https://drive.google.com/file/d/1jcGZS3HQd3hbWxxvcC5f7koREpIiGaBD/view?usp=sharing')}
-                        className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#df2029]"
-                        title="Copiar link de recorrido virtual"
-                      >
-                        {copiedKey === 'sede-link-rec-jbyr' ? <Check size={10} className="text-emerald-500" /> : <Video size={10} />}
-                        <span>{copiedKey === 'sede-link-rec-jbyr' ? '¡Copiado!' : 'Link Recorrido'}</span>
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
 
-              {/* OPCION 3: VIRTUAL ZOOM / MEET */}
+              {/* OPCIÓN 3: VIRTUAL ZOOM / MEET */}
               <div className="p-3.5 rounded-lg bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -908,53 +704,54 @@ Soy ${defaultAsesor} de Brighton Inglés Nativo. Te tenemos registrada en nuestr
                       3. Tercera opción: Cita virtual por Zoom o Google Meet
                     </span>
                   </div>
-                  <span className="text-[10px] text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 rounded border border-sky-200 dark:border-sky-900">
-                    Otras ciudades o si prefieren virtual
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      copyText(
+                        'p4-virtual',
+                        `“¡Excelente, ${prospecto}! Como te encuentras en otra ciudad (o con horario ajustado), hagamos una videollamada corta de 20 minutos por Zoom o Meet. Te comparto pantalla con el plano interactivo, lotes disponibles, ubicación GPS, fotos/videos del proyecto y cotización detallada.\n¿Qué horario de hoy te queda cómodo para enviarte el enlace por WhatsApp?”`
+                      )
+                    }
+                    className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300"
+                  >
+                    {copiedKey === 'p4-virtual' ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                    <span>{copiedKey === 'p4-virtual' ? '¡Copiado!' : 'Copiar'}</span>
+                  </button>
                 </div>
 
                 <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed italic border-l-2 border-sky-400 pl-2.5 space-y-1.5">
                   <p>
-                    “¡Perfecto, <span className="font-bold">{prospecto}</span>! Como te encuentras en otra ciudad, podemos reunirnos de manera virtual.
-                  </p>
-                  <p>
-                    Explicarte todos los detalles de nuestro programa por una llamada telefónica sería un poco complicado, por eso me gustaría que tengamos una breve reunión por Zoom o Meet, donde pueda explicarte nuestra metodología, horarios y costos, y resolver todas tus inquietudes.
-                  </p>
-                  <p>
-                    El día de hoy, ¿a qué hora te queda bien que nos reunamos?
+                    “¡Excelente, <span className="font-bold">{prospecto}</span>! Como te encuentras en otra ciudad o con horario ajustado, hagamos una videollamada corta de 20 minutos por Zoom o Meet. Te comparto pantalla con el plano, lotes disponibles, ubicación exacta, fotos/videos del proyecto y cotización detallada.”
                   </p>
                   <p className="font-semibold text-sky-600 dark:text-sky-400">
-                    ¡Excelente! Te voy a enviar el enlace de nuestra reunión por WhatsApp.”
+                    “¿Qué horario de hoy te queda cómodo para enviarte el enlace por WhatsApp?”
                   </p>
                 </div>
               </div>
 
-              {/* REGLAS NO NEGOCIABLES DEL PASO 4 */}
+              {/* REGLAS NO NEGOCIABLES */}
               <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs space-y-1.5">
                 <div className="flex items-center gap-1.5 font-bold text-rose-800 dark:text-rose-300">
                   <ShieldAlert size={14} className="text-rose-600" />
                   <span>Reglas no negociables del Paso 4:</span>
                 </div>
                 <ul className="list-disc list-inside space-y-1 text-rose-900 dark:text-rose-200 pl-1">
-                  <li>Priorizar la visita domiciliaria en Arequipa.</li>
-                  <li>Proponer la cita para el mismo día o el siguiente.</li>
-                  <li>La cita en sede se da solo si el cliente prefiere acudir a Brighton.</li>
-                  <li>Ofrecer Zoom o Meet para prospectos de otras ciudades o cuando corresponda.</li>
-                  <li>Confirmar fecha, hora, lugar o enlace y registrar la cita en CRM.</li>
+                  <li>Si está en Arequipa, priorizar siempre la visita guiada al proyecto.</li>
+                  <li>Si está en otra ciudad/departamento o no puede desplazarse aún, agendar videollamada con plano en vivo.</li>
+                  <li>Proponer fecha y hora concreta (idealmente hoy, mañana o fin de semana próximo).</li>
+                  <li>Si reprograma o no puede asistir, actualizar el estado de la cita a <strong>Reprogramada</strong> o <strong>No asistió</strong> en el CRM y reagendar.</li>
                 </ul>
               </div>
             </section>
           )}
 
-          {/* ─────────────────────────────────────────────────────────────
-              PASO 5: AUTONOMÍA DE LA DECISIÓN
-              ───────────────────────────────────────────────────────────── */}
+          {/* PASO 5: AUTONOMÍA DE LA DECISIÓN */}
           {showPaso5 && (
             <section className="space-y-3 rounded-xl p-4 bg-slate-50 dark:bg-[#131d30] border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span
-                    style={{ backgroundColor: '#df2029' }}
+                    style={{ backgroundColor: '#1F1D5C' }}
                     className="w-6 h-6 rounded-lg text-white text-xs font-bold flex items-center justify-center shadow-xs"
                   >
                     5
@@ -968,43 +765,39 @@ Soy ${defaultAsesor} de Brighton Inglés Nativo. Te tenemos registrada en nuestr
                   onClick={() =>
                     copyText(
                       'p5-pregunta',
-                      `“${prospecto}, una consulta adicional: cuando decides invertir en tus estudios, ¿tanto la decisión académica como la económica las tomas directamente tú o acostumbras conversarlas o consultarlas con alguien de tu familia?”`
+                      `“${prospecto}, una consulta adicional: cuando evalúas adquirir o invertir en un lote, ¿la decisión la tomas directamente tú o la conversas también con tu pareja, algún familiar o socio?”`
                     )
                   }
-                  className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#df2029]"
+                  className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#1F1D5C]"
                 >
                   {copiedKey === 'p5-pregunta' ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
                   <span>{copiedKey === 'p5-pregunta' ? '¡Copiado!' : 'Copiar'}</span>
                 </button>
               </div>
 
-              {/* Pregunta Clave */}
               <div
-                style={{ borderLeftColor: '#df2029' }}
+                style={{ borderLeftColor: '#1F1D5C' }}
                 className="p-3 rounded-lg bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 italic border-l-2"
               >
-                “<span className="font-bold">{prospecto}</span>, una consulta adicional: cuando decides invertir en tus estudios, ¿tanto la decisión académica como la económica las tomas directamente tú o acostumbras conversarlas o consultarlas con alguien de tu familia?”
+                “<span className="font-bold">{prospecto}</span>, una consulta adicional: cuando evalúas adquirir o invertir en un lote, ¿la decisión la tomas directamente tú o la conversas también con tu pareja, algún familiar o socio?”
               </div>
 
-              {/* Escenarios A y B */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                {/* Escenario A */}
                 <div className="p-3 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/60 space-y-2">
                   <div className="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300">
                     <CheckCircle2 size={14} className="text-emerald-600" />
-                    <span>Escenario A · Autonomía</span>
+                    <span>Escenario A · Decisor directo</span>
                   </div>
                   <div className="space-y-1 text-slate-700 dark:text-slate-300">
                     <p className="font-medium text-emerald-700 dark:text-emerald-400">
-                      Prospecto: “Sí, yo tomo mis propias decisiones y asumo el pago”.
+                      Prospecto: “Sí, la decisión e inversión dependen directamente de mí”.
                     </p>
                     <p className="italic bg-white dark:bg-[#0c121d] p-2 rounded border border-emerald-100 dark:border-emerald-900/40">
-                      Asesor: “¡Perfecto, {prospecto}! Entonces vamos a confirmar nuestra reunión para hoy a las seis de la tarde”.
+                      Asesor: “¡Perfecto, {prospecto}! Entonces confirmamos nuestra visita/cita y te llevo las opciones exactas de lotes y financiamiento”.
                     </p>
                   </div>
                 </div>
 
-                {/* Escenario B */}
                 <div className="p-3 rounded-lg bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 space-y-2">
                   <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
                     <Users size={14} className="text-amber-600" />
@@ -1012,42 +805,34 @@ Soy ${defaultAsesor} de Brighton Inglés Nativo. Te tenemos registrada en nuestr
                   </div>
                   <div className="space-y-1 text-slate-700 dark:text-slate-300">
                     <p className="font-medium text-amber-700 dark:text-amber-400">
-                      Prospecto: “Tengo que conversarlo con mi esposo porque él me apoyaría económicamente”.
+                      Prospecto: “Lo veo con mi esposo / esposa / familia porque compramos juntos”.
                     </p>
                     <p className="italic bg-white dark:bg-[#0c121d] p-2 rounded border border-amber-100 dark:border-amber-900/40">
-                      Asesor: “¡Perfecto, {prospecto}! Justamente para que ambos puedan conocer nuestra propuesta, resolver sus dudas y tomar una decisión con toda la información, es importante que tu esposo también esté presente en la reunión. ¿Él podría acompañarnos hoy a las seis o qué horario les quedaría bien a ambos?”
+                      Asesor: “¡Qué importante que ambos conozcan el terreno y los números! ¿Podría acompañarnos a la visita o conectarse también a la videollamada para que resuelvan todas sus dudas juntos?”
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Regla comercial no negociable */}
               <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs space-y-1 text-rose-900 dark:text-rose-200">
                 <p className="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
                   <ShieldAlert size={14} className="text-rose-600" />
                   Regla comercial no negociable:
                 </p>
                 <p>
-                  Una cita de cierre calificada debe contar con la participación de todas las personas cuya aprobación académica o económica sea indispensable para concretar la matrícula.
-                </p>
-                <p className="text-[11px] text-rose-700 dark:text-rose-400">
-                  • Si tiene autonomía: se confirma directamente.
-                  <br />
-                  • Si es compartida: se coordina un horario en el que puedan participar los decisores.
+                  En compras inmobiliarias, asegurar la presencia de los codecisores (cónyuge, familia o socio) aumenta drásticamente la probabilidad de separación en visita y evita postergaciones largas.
                 </p>
               </div>
             </section>
           )}
 
-          {/* ─────────────────────────────────────────────────────────────
-              PASO 6: CONFIRMACIÓN Y ASENTAMIENTO
-              ───────────────────────────────────────────────────────────── */}
+          {/* PASO 6: CONFIRMACIÓN Y ASENTAMIENTO */}
           {showPaso6 && (
             <section className="space-y-3 rounded-xl p-4 bg-slate-50 dark:bg-[#131d30] border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span
-                    style={{ backgroundColor: '#df2029' }}
+                    style={{ backgroundColor: '#1F1D5C' }}
                     className="w-6 h-6 rounded-lg text-white text-xs font-bold flex items-center justify-center shadow-xs"
                   >
                     6
@@ -1057,88 +842,77 @@ Soy ${defaultAsesor} de Brighton Inglés Nativo. Te tenemos registrada en nuestr
                   </h3>
                 </div>
                 <span
-                  style={{ color: '#df2029', borderColor: '#df2029' }}
-                  className="text-[11px] font-semibold bg-red-50 dark:bg-[#df2029]/20 px-2 py-0.5 rounded-full border border-opacity-30"
+                  style={{ color: '#1F1D5C', borderColor: '#1F1D5C' }}
+                  className="text-[11px] font-semibold bg-[#1F1D5C]/10 dark:bg-[#1F1D5C]/30 px-2 py-0.5 rounded-full border border-[#1F1D5C]/30 dark:border-indigo-400/30"
                 >
                   Compromiso
                 </span>
               </div>
 
-              {/* Confirmación para Visita Domiciliaria */}
+              {/* Confirmación Visita al Proyecto */}
               <div className="p-3 rounded-lg bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span style={{ color: '#df2029' }} className="text-xs font-bold flex items-center gap-1.5">
-                    <Home size={13} /> Para visita domiciliaria
+                  <span style={{ color: '#1F1D5C' }} className="text-xs font-bold flex items-center gap-1.5">
+                    <MapPin size={13} /> Para visita guiada al proyecto
                   </span>
                   <button
                     type="button"
                     onClick={() =>
                       copyText(
-                        'p6-dom',
-                        `“¡Perfecto, ${prospecto}! Entonces quedamos para hoy a las 6:00 p. m. en tu domicilio.
-En este momento estoy agendando nuestra reunión y te voy a pedir que tú también la agendes, para evitar cualquier inconveniente.
-Durante mi visita te voy a presentar una excelente propuesta académica y económica, explicándote nuestra metodología, horarios y costos.
-Si te gusta y se adapta a lo que estás buscando, puedes aprovecharla y matricularte en ese mismo momento. Y si no, no hay ningún problema, te quedará toda la información para que puedas evaluarla con tranquilidad.
-Mi nombre es ${defaultAsesor} y en unos minutos te enviaré un WhatsApp confirmando nuestra cita.
-¡Nos vemos a las seis, que tengas bonito día!”`
+                        'p6-visita',
+                        `“¡Perfecto, ${prospecto}! Quedamos confirmados para el [día] a las [hora] para tu visita al proyecto.\nEn este momento dejo registrada nuestra cita en agenda; te recomiendo también anotarla para no cruzarnos.\nDurante el recorrido te mostraré los lotes disponibles según lo que buscas, la documentación y las facilidades de cuotas. Si encuentras el lote ideal, ese mismo día puedes separarlo para asegurar tu ubicación.\nSoy ${defaultAsesor} de ${brandName}; en unos minutos te envío por WhatsApp la ubicación exacta y confirmación. ¡Nos vemos!”`
                       )
                     }
-                    className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#df2029]"
+                    className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#1F1D5C]"
                   >
-                    {copiedKey === 'p6-dom' ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
-                    <span>{copiedKey === 'p6-dom' ? '¡Copiado!' : 'Copiar'}</span>
+                    {copiedKey === 'p6-visita' ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                    <span>{copiedKey === 'p6-visita' ? '¡Copiado!' : 'Copiar'}</span>
                   </button>
                 </div>
                 <div
-                  style={{ borderLeftColor: '#df2029' }}
+                  style={{ borderLeftColor: '#1F1D5C' }}
                   className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed italic border-l-2 pl-2.5 space-y-1"
                 >
-                  <p>“¡Perfecto, <span className="font-bold">{prospecto}</span>! Entonces quedamos para hoy a las 6:00 p. m. en tu domicilio.</p>
-                  <p>En este momento estoy agendando nuestra reunión y te voy a pedir que tú también la agendes, para evitar cualquier inconveniente.</p>
-                  <p>Durante mi visita te voy a presentar una excelente propuesta académica y económica, explicándote nuestra metodología, horarios y costos.</p>
-                  <p>Si te gusta y se adapta a lo que estás buscando, puedes aprovecharla y matricularte en ese mismo momento. Y si no, no hay ningún problema, te quedará toda la información para que puedas evaluarla con tranquilidad.</p>
-                  <p style={{ color: '#df2029' }} className="font-semibold">
-                    Mi nombre es {defaultAsesor} y en unos minutos te enviaré un WhatsApp confirmando nuestra cita. ¡Nos vemos a las seis, que tengas bonito día!”
+                  <p>“¡Perfecto, <span className="font-bold">{prospecto}</span>! Quedamos confirmados para el [día] a las [hora] para tu visita al proyecto.</p>
+                  <p>Durante el recorrido te mostraré los lotes disponibles según lo que buscas, la documentación y las facilidades de cuotas. Si encuentras el lote ideal, ese mismo día puedes separarlo para asegurar tu ubicación.</p>
+                  <p style={{ color: '#1F1D5C' }} className="font-semibold">
+                    Soy {defaultAsesor} de {brandName}; en unos minutos te envío por WhatsApp la ubicación exacta y confirmación. ¡Nos vemos!”
                   </p>
                 </div>
               </div>
 
-              {/* Confirmación para Visita en Oficina */}
+              {/* Confirmación Oficina / Virtual */}
               <div className="p-3 rounded-lg bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <Building2 size={13} /> Para visita en oficina
+                    <Building2 size={13} /> Para cita en oficina o virtual
                   </span>
                   <button
                     type="button"
                     onClick={() =>
                       copyText(
                         'p6-ofic',
-                        `“En este momento estoy agendando nuestra reunión y te voy a pedir que tú también la agendes.
-Te comento que normalmente realizo visitas y asesorías fuera de la oficina. Sin embargo, como hemos coordinado reunirnos a esa hora, voy a organizar mi agenda para estar personalmente y atenderte. Durante nuestra reunión te voy a presentar una excelente propuesta académica y económica. Si te gusta y se adapta a lo que estás buscando, puedes aprovecharla y matricularte en ese momento. Y si no, te quedará toda la información.
-En unos minutos te enviaré un WhatsApp con la ubicación y la confirmación de nuestra cita. ¡Nos vemos a las seis, que tengas bonito día!”`
+                        `“¡Excelente, ${prospecto}! Estoy agendando nuestra reunión para el [día] a las [hora].\nTendré listos el plano actualizado, la disponibilidad de lotes según el metraje que buscas y la simulación de cuotas para evaluarlo con total claridad. Si alguna ubicación te convence, te explico ahí mismo el proceso de separación.\nEn unos minutos te envío por WhatsApp la confirmación y [la dirección / el enlace de reunión]. ¡Que tengas excelente día!”`
                       )
                     }
-                    className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#df2029]"
+                    className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#1F1D5C]"
                   >
                     {copiedKey === 'p6-ofic' ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
                     <span>{copiedKey === 'p6-ofic' ? '¡Copiado!' : 'Copiar'}</span>
                   </button>
                 </div>
                 <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed italic border-l-2 border-slate-400 pl-2.5 space-y-1">
-                  <p>“En este momento estoy agendando nuestra reunión y te voy a pedir que tú también la agendes.</p>
-                  <p>Te comento que normalmente realizo visitas y asesorías fuera de la oficina. Sin embargo, como hemos coordinado reunirnos a esa hora, voy a organizar mi agenda para estar personalmente y atenderte. Durante nuestra reunión te voy a presentar una excelente propuesta académica y económica. Si te gusta y se adapta a lo que estás buscando, puedes aprovecharla y matricularte en ese momento. Y si no, te quedará toda la información.</p>
-                  <p style={{ color: '#df2029' }} className="font-semibold">
-                    En unos minutos te enviaré un WhatsApp con la ubicación y la confirmación de nuestra cita. ¡Nos vemos a las seis, que tengas bonito día!”
+                  <p>“¡Excelente, <span className="font-bold">{prospecto}</span>! Estoy agendando nuestra reunión para el [día] a las [hora].</p>
+                  <p>Tendré listos el plano actualizado, la disponibilidad de lotes según el metraje que buscas y la simulación de cuotas para evaluarlo con total claridad. Si alguna ubicación te convence, te explico ahí mismo el proceso de separación.</p>
+                  <p style={{ color: '#1F1D5C' }} className="font-semibold">
+                    En unos minutos te envío por WhatsApp la confirmación y [la dirección / el enlace de reunión]. ¡Que tengas excelente día!”
                   </p>
                 </div>
               </div>
             </section>
           )}
 
-          {/* ─────────────────────────────────────────────────────────────
-              ANEXO DE GUIONES: OBJECIONES DE LLAMADA TELEFONICA
-              ───────────────────────────────────────────────────────────── */}
+          {/* OBJECIONES TELEFÓNICAS */}
           {showObjeciones && (
             <section className="space-y-3 rounded-xl p-4 bg-amber-50/50 dark:bg-[#181a24] border border-amber-200 dark:border-amber-900/60 shadow-xs">
               <div className="flex items-center justify-between gap-2">
@@ -1193,110 +967,8 @@ En unos minutos te enviaré un WhatsApp con la ubicación y la confirmación de 
             </section>
           )}
 
-          {/* ─────────────────────────────────────────────────────────────
-              LINKS DE INTERÉS: RECORRIDOS, UBICACIONES Y MATERIAL DE SEDES
-              ───────────────────────────────────────────────────────────── */}
-          {showLinks && (
-            <section className="space-y-3 rounded-xl p-4 bg-slate-50 dark:bg-[#131d30] border border-slate-200 dark:border-slate-800 shadow-xs">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div
-                    style={{ backgroundColor: '#df2029' }}
-                    className="w-6 h-6 rounded-lg text-white flex items-center justify-center font-bold text-xs shadow-xs"
-                  >
-                    <Link2 size={13} />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                    Links de Interés
-                  </h3>
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-red-50 dark:bg-[#df2029]/20 text-[#df2029] dark:text-[#ff6b72] border border-red-200 dark:border-[#df2029]/30">
-                  {linksDeInteres.length} Enlaces
-                </span>
-              </div>
-
-              <div className="bg-red-50/60 dark:bg-red-950/20 border border-red-100 dark:border-red-900/40 p-2.5 rounded-lg text-xs text-slate-700 dark:text-slate-300 flex items-start gap-2">
-                <Target size={14} className="text-[#df2029] shrink-0 mt-0.5" />
-                <p>
-                  <span className="font-bold text-slate-900 dark:text-white">Herramienta rápida:</span> copia el enlace directo para enviarlo al prospecto por WhatsApp o ábrelo en Google Drive con un solo clic.
-                </p>
-              </div>
-
-              <div className="space-y-2.5 pt-1">
-                {linksDeInteres
-                  .filter((l) => matchText(l.titulo) || matchText(l.descripcion) || matchText(l.categoria) || matchText(l.url))
-                  .map((link) => {
-                    const isCopied = copiedKey === link.id
-                    return (
-                      <div
-                        key={link.id}
-                        className="p-3 rounded-lg bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 space-y-2 hover:border-[#df2029]/40 transition-all shadow-2xs"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span
-                                style={{ color: '#df2029' }}
-                                className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-red-50 dark:bg-[#df2029]/20 border border-red-200 dark:border-[#df2029]/30"
-                              >
-                                {link.categoria}
-                              </span>
-                              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                                {link.tipo}
-                              </span>
-                            </div>
-                            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 mt-0.5">
-                              {link.tipo === 'Recorrido' ? (
-                                <Video size={13} className="text-[#df2029] shrink-0" />
-                              ) : link.tipo === 'Ubicación' ? (
-                                <MapPin size={13} className="text-[#df2029] shrink-0" />
-                              ) : (
-                                <Sparkles size={13} className="text-[#df2029] shrink-0" />
-                              )}
-                              <span>{link.titulo}</span>
-                            </h4>
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => copyText(link.id, link.url)}
-                              className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-[#df2029] transition-colors cursor-pointer"
-                              title="Copiar link para WhatsApp"
-                            >
-                              {isCopied ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
-                              <span className="font-medium">{isCopied ? '¡Copiado!' : 'Copiar'}</span>
-                            </button>
-                            <a
-                              href={link.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#df2029] transition-colors inline-flex items-center justify-center cursor-pointer"
-                              title="Abrir enlace en Google Drive"
-                            >
-                              <ExternalLink size={13} />
-                            </a>
-                          </div>
-                        </div>
-
-                        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
-                          {link.descripcion}
-                        </p>
-
-                        <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                          <span className="truncate max-w-[280px] sm:max-w-[380px]" title={link.url}>
-                            {link.url}
-                          </span>
-                        </div>
-                      </div>
-                    )
-                  })}
-              </div>
-            </section>
-          )}
-
-          {/* MENSAJE CUANDO NINGÚN RESULTADO COINCIDE CON LA BÚSQUEDA */}
-          {!showPaso1 && !showPaso2 && !showPaso3 && !showPaso4 && !showPaso5 && !showPaso6 && !showObjeciones && !showLinks && (
+          {/* MENSAJE CUANDO NINGÚN RESULTADO COINCIDE */}
+          {!showPaso1 && !showPaso2 && !showPaso3 && !showPaso4 && !showPaso5 && !showPaso6 && !showObjeciones && (
             <div className="text-center py-12 space-y-2 text-slate-400">
               <Search size={32} className="mx-auto text-slate-300 dark:text-slate-600" />
               <p className="text-sm font-medium">No se encontraron resultados para “{searchQuery}”</p>
@@ -1306,7 +978,7 @@ En unos minutos te enviaré un WhatsApp con la ubicación y la confirmación de 
                   setSearchQuery('')
                   setActiveTab('todos')
                 }}
-                style={{ color: '#df2029' }}
+                style={{ color: '#1F1D5C' }}
                 className="text-xs hover:underline"
               >
                 Limpiar búsqueda y ver todo
@@ -1315,20 +987,13 @@ En unos minutos te enviaré un WhatsApp con la ubicación y la confirmación de 
           )}
         </div>
 
-        {/* FOOTER INFORMATIVO CON ACCESOS RÁPIDOS */}
+        {/* FOOTER INFORMATIVO */}
         <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#131d30] flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <MapPin size={12} style={{ color: '#df2029' }} />
-              Umacollo: González Prada 110
-            </span>
-            <span className="hidden sm:inline">|</span>
-            <span className="hidden sm:flex items-center gap-1">
-              <MapPin size={12} style={{ color: '#df2029' }} />
-              Bustamante: Danubio 233
-            </span>
+          <div className="flex items-center gap-2">
+            <MapPin size={12} style={{ color: '#1F1D5C' }} />
+            <span>{brandLegalName} · Guiones de calificación, visita y cierre</span>
           </div>
-          <span className="text-[11px] font-mono">Brighton CRM</span>
+          <span className="text-[11px] font-mono">{brandName} CRM</span>
         </div>
       </aside>
     </>

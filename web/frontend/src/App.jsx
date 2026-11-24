@@ -45,6 +45,7 @@ const DashboardSupervisionControl = lazyWithReload(() => import('@/pages/Dashboa
 const BolsaReciclajeTMK = lazyWithReload(() => import('@/pages/BolsaReciclajeTMK'))
 const LeadsCampanas = lazyWithReload(() => import('@/pages/LeadsCampanas'))
 const PapeleraLeads = lazyWithReload(() => import('@/pages/PapeleraLeads'))
+const Separaciones = lazyWithReload(() => import('@/pages/Separaciones'))
 
 /**
  * Ruta protegida: redirige al login si el usuario no está autenticado.
@@ -224,6 +225,15 @@ export default function App() {
                 element={
                   <PermissionRoute permission="admin.all" legacyRoles={['admin']}>
                     <DashboardSupervisionControl />
+                  </PermissionRoute>
+                }
+              />
+              {/* Separaciones y Cierres (Excel respaldado en servidor + sync Git desde Drive) — exclusivo admin */}
+              <Route
+                path="separaciones"
+                element={
+                  <PermissionRoute permission="admin.all" legacyRoles={['admin']}>
+                    <Separaciones />
                   </PermissionRoute>
                 }
               />

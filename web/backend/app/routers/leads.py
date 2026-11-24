@@ -1567,7 +1567,7 @@ def update_lead(lead_id: int, data: LeadUpdate, current_user: TokenData = Depend
                     clean_ft[k] = str(v)
             is_comp = all(
                 bool(clean_ft.get(k) and str(clean_ft.get(k)).strip())
-                for k in ["motivacion", "beneficiario", "ubicacion", "experiencia_previa", "necesidad_actual", "inicio"]
+                for k in ["tipo_lote", "uso_lote", "ubicacion", "otros_proyectos", "plazo_compra"]
             )
             set_parts.append("ficha_tecnica = %s::jsonb")
             set_params.append(json.dumps(clean_ft))

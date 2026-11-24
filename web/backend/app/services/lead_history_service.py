@@ -54,12 +54,11 @@ FIELD_LABELS: dict[str, str] = {
 }
 
 FICHA_TECNICA_KEYS: dict[str, str] = {
-    "motivacion": "Ficha técnica: Motivación",
-    "beneficiario": "Ficha técnica: Beneficiario",
-    "ubicacion": "Ficha técnica: Ubicación",
-    "experiencia_previa": "Ficha técnica: Experiencia previa",
-    "necesidad_actual": "Ficha técnica: Necesidad actual",
-    "inicio": "Ficha técnica: Inicio estimado",
+    "tipo_lote": "Ficha técnica: Tipo de lote",
+    "uso_lote": "Ficha técnica: Uso / Objetivo",
+    "ubicacion": "Ficha técnica: Ubicación actual",
+    "otros_proyectos": "Ficha técnica: Otros proyectos",
+    "plazo_compra": "Ficha técnica: Plazo de compra",
 }
 
 

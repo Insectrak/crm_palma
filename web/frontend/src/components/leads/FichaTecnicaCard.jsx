@@ -96,17 +96,17 @@ export default function FichaTecnicaCard({
             {stats.isComplete ? (
               <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <CheckCircle2 size={12} className="text-emerald-600" />
-                Completa (6/6)
+                Completa ({stats.total}/{stats.total})
               </span>
             ) : stats.completedCount > 0 ? (
               <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                 <AlertCircle size={12} className="text-amber-600" />
-                Incompleta ({stats.completedCount}/6)
+                Incompleta ({stats.completedCount}/{stats.total})
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
                 <AlertCircle size={12} className="text-amber-700" />
-                Pendiente (0/6)
+                Pendiente (0/{stats.total})
               </span>
             )}
 
@@ -157,7 +157,7 @@ export default function FichaTecnicaCard({
                 Falta información comercial por incluir en la ficha
               </p>
               <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
-                Este cuestionario de descubrimiento es fundamental para entender la necesidad del alumno y cerrar la matrícula.
+                Este cuestionario de perfilamiento inmobiliario es fundamental para entender qué lote busca el cliente y concretar la visita o cierre.
                 {stats.completedCount === 0
                   ? ' El asesor encargado debe rellenarlo durante la gestión del lead.'
                   : ` Faltan ${stats.total - stats.completedCount} preguntas por responder.`}

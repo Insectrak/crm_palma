@@ -4,7 +4,7 @@ import {
   Home, Users2, UserPlus, Upload,
   BarChart2, Phone, CalendarDays, Building2,
   PanelLeftClose, PanelLeftOpen,
-  Shuffle, FileText, MessageCircle, Archive, Plug, Target, LayoutGrid, Activity,
+  Shuffle, FileText, FileSpreadsheet, MessageCircle, Archive, Plug, Target, LayoutGrid, Activity,
   RotateCcw, LayoutDashboard, Megaphone, Trash2, Sparkles, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -34,6 +34,7 @@ const ALL_MENU_ITEMS = [
   { label: 'Carga Masiva', icon: Upload, path: '/carga-masiva', roles: null, group: 'daily', permissionKey: 'carga_masiva.use' },
   // ── Gestión (supervisor/admin) ──────────────────────────────
   { label: 'Supervisión y Control', icon: ShieldCheck, path: '/supervision-control', roles: ['admin'], group: 'mgmt', permissionKey: null },
+  { label: 'Separaciones', icon: FileSpreadsheet, path: '/separaciones', roles: ['admin'], group: 'mgmt', permissionKey: null },
   { label: 'Panel Jefatura', icon: LayoutDashboard, path: '/dashboard-jefatura', roles: ['admin', 'supervisor'], group: 'mgmt', permissionKey: 'dashboards.view' },
   { label: 'Bolsa TMK', icon: RotateCcw, path: '/reciclaje-tmk', roles: ['admin', 'supervisor'], group: 'mgmt', permissionKey: 'leads.manage' },
   { label: 'Histórico', icon: Archive, path: '/historicos', roles: ['admin'], group: 'mgmt', permissionKey: 'historicos.view' },
@@ -200,6 +201,9 @@ function Sidebar() {
 
   const visibleItems = ALL_MENU_ITEMS.filter(item => {
     if (item.path === '/supervision-control') {
+      return role === 'admin'
+    }
+    if (item.path === '/separaciones') {
       return role === 'admin'
     }
     if (item.path === '/dashboard-jefatura') {

@@ -90,6 +90,7 @@ from app.routers.dashboard_supervision import router as dashboard_supervision_ro
 from app.routers.reciclaje_tmk import router as reciclaje_tmk_router
 from app.routers.leads_inactivos import router as leads_inactivos_router
 from app.routers.reportes_especiales import router as reportes_especiales_router
+from app.routers.separaciones import router as separaciones_router
 
 FRONTEND_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "static_frontend")
@@ -251,6 +252,7 @@ app.include_router(reciclaje_tmk_router)
 app.include_router(campaign_assignments_router)
 app.include_router(leads_inactivos_router)
 app.include_router(reportes_especiales_router)
+app.include_router(separaciones_router)
 
 # V070.99 — Runtime config injection para el SPA.
 # Lee env vars frontend (VITE_*) y las inyecta en el HTML al servir como

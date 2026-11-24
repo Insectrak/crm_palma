@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 export const useManualApoyoStore = create((set) => ({
   isOpen: false,
-  activeTab: 'todos', // 'todos' | 'paso1' | 'paso2' | 'paso3' | 'paso4' | 'paso5' | 'paso6' | 'objeciones' | 'links'
+  activeTab: 'todos', // 'todos' | 'paso1' | 'paso2' | 'paso3' | 'paso4' | 'paso5' | 'paso6' | 'objeciones'
   prospectoNombre: '',
   asesorNombre: '',
   searchQuery: '',

@@ -1800,16 +1800,16 @@ export default function Leads() {
                   className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200 border border-amber-300 dark:border-amber-800/60 cursor-help"
                   title={
                     fichaStats.completedCount === 0
-                      ? 'Ficha técnica pendiente: 0/6 preguntas completadas'
-                      : `Ficha técnica incompleta: ${fichaStats.completedCount}/6 preguntas completadas`
+                      ? `Ficha técnica pendiente: 0/${fichaStats.total} preguntas completadas`
+                      : `Ficha técnica incompleta: ${fichaStats.completedCount}/${fichaStats.total} preguntas completadas`
                   }
                 >
-                  📋 Ficha {fichaStats.completedCount > 0 ? `${fichaStats.completedCount}/6` : 'pendiente'}
+                  📋 Ficha {fichaStats.completedCount > 0 ? `${fichaStats.completedCount}/${fichaStats.total}` : 'pendiente'}
                 </span>
               ) : (
                 <span
                   className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50"
-                  title="Ficha técnica completa (6/6 preguntas respondidas)"
+                  title={`Ficha técnica completa (${fichaStats.total}/${fichaStats.total} preguntas respondidas)`}
                 >
                   ✓ Ficha
                 </span>
@@ -2126,9 +2126,9 @@ export default function Leads() {
           return (
             <span
               className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
-              title="Ficha técnica completada (6/6)"
+              title={`Ficha técnica completada (${stats.total}/${stats.total})`}
             >
-              ✓ Completa (6/6)
+              ✓ Completa ({stats.total}/{stats.total})
             </span>
           )
         }
@@ -2138,16 +2138,16 @@ export default function Leads() {
               className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300"
               title={`Ficha técnica incompleta: ${stats.completedCount} de ${stats.total} preguntas`}
             >
-              ⚠️ Incompleta ({stats.completedCount}/6)
+              ⚠️ Incompleta ({stats.completedCount}/{stats.total})
             </span>
           )
         }
         return (
           <span
             className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200"
-            title="Ficha técnica sin rellenar (0/6)"
+            title={`Ficha técnica sin rellenar (0/${stats.total})`}
           >
-            ⚠️ Pendiente (0/6)
+            ⚠️ Pendiente (0/{stats.total})
           </span>
         )
       }

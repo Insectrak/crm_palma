@@ -1864,6 +1864,8 @@ def get_evolucion_citas(
             )
 
             hist_where_or = "OR COALESCE(he.tuvo_hist_cv, FALSE) OR he.ultima_hist_pos_at IS NOT NULL" if has_hist else ""
+            hist_period_or = "OR COALESCE(he.tuvo_hist_cv_periodo, FALSE)" if has_hist else ""
+            hist_pos_period_or = "OR COALESCE(he.tuvo_hist_pos_periodo, FALSE)" if has_hist else ""
             hist_period_or = "OR tuvo_hist_cv_periodo" if has_hist else ""
             hist_pos_period_or = "OR tuvo_hist_pos_periodo" if has_hist else ""
 
@@ -1949,6 +1951,7 @@ def get_evolucion_citas(
                         {hist_select_cols}
                         uc.ultima_fecha_cita,
                         uc.tipo_cita,
+                        {ce_lat_select}
                         uc.ultima_cita_estado_codigo,
                         uc.ultima_cita_estado_nombre,
                         uc.ultima_cita_estado_color

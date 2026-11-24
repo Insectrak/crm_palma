@@ -3266,7 +3266,7 @@ export default function LeadDetalle() {
                   <h4 className="text-xs font-bold text-amber-900 dark:text-amber-100 flex items-center gap-2">
                     Ficha técnica pendiente por rellenar
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 border border-amber-300">
-                      {fichaStats.completedCount}/6 completadas
+                      {fichaStats.completedCount}/{fichaStats.total} completadas
                     </span>
                   </h4>
                   <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5">
