@@ -17,6 +17,10 @@ import {
   Video,
   User,
   RotateCcw,
+  ExternalLink,
+  Link2,
+  Globe,
+  Map,
 } from 'lucide-react'
 import useAuthStore from '@/store/authStore'
 import useBrandStore from '@/store/brandStore'
@@ -228,6 +232,63 @@ Para darte una cifra exacta y no un aproximado genérico, cuéntame:
   const showObjeciones = (activeTab === 'todos' || activeTab === 'objeciones') &&
     objeciones.some((o) => matchText(o.titulo) || matchText(o.subtitulo) || matchText(o.guion))
 
+  const linksInteresGrupos = useMemo(() => [
+    {
+      id: 'planos',
+      titulo: 'Planos de los Lotes',
+      badge: 'Planos',
+      items: [
+        { id: 'lnk-palmeras', nombre: 'Puerto Palmeras', url: 'https://palmadelrioinmobiliaria.com/app_puertopalmeras/' },
+        { id: 'lnk-illary', nombre: 'Illary', url: 'https://palmadelrioinmobiliaria.com/app_illary/' },
+        { id: 'lnk-ensenada', nombre: 'La Ensenada', url: 'https://palmadelrioinmobiliaria.com/pr_laensenadaa/' },
+        { id: 'lnk-paracas', nombre: 'Paracas', url: 'https://palmadelrioinmobiliaria.com/pr_paracas/' },
+        { id: 'lnk-vallarta', nombre: 'Puerto Vallarta', url: 'https://palmadelrioinmobiliaria.com/pto.vallarta/' },
+        { id: 'lnk-hacienda', nombre: 'Hacienda del Mar', url: 'https://palmadelrioinmobiliaria.com/pr_haciendadelmar/' },
+        { id: 'lnk-comercial', nombre: 'Proyecto Comercial', url: 'https://palmadelrioinmobiliaria.com/pr_comercial/' },
+      ],
+    },
+    {
+      id: 'tours',
+      titulo: 'Tours Virtuales de Proyectos',
+      badge: 'Tour 360°',
+      items: [
+        { id: 'lnk-tour-madero', nombre: 'Tour Puerto Madero', url: 'https://palmadelrioinmobiliaria.com/tourpuertomadero/index.html' },
+        { id: 'lnk-tour-illary', nombre: 'Tour Illary', url: 'https://palmadelrioinmobiliaria.com/tourillary/index.htm' },
+      ],
+    },
+    {
+      id: 'web',
+      titulo: 'Página Principal',
+      badge: 'Web Oficial',
+      items: [
+        { id: 'lnk-web', nombre: 'Palma del Río Inmobiliaria', url: 'https://palmadelrioinmobiliaria.com/' },
+      ],
+    },
+    {
+      id: 'redes',
+      titulo: 'Redes Sociales Oficiales',
+      badge: 'Redes Sociales',
+      items: [
+        { id: 'lnk-tiktok', nombre: 'TikTok', url: 'https://www.tiktok.com/@palmadelrioinmobiliaria' },
+        { id: 'lnk-facebook', nombre: 'Facebook', url: 'https://www.facebook.com/PalmaDelRioInmobiliaria' },
+        { id: 'lnk-instagram', nombre: 'Instagram', url: 'https://www.instagram.com/palmadelrio.inmobiliaria/' },
+      ],
+    },
+  ], [])
+
+  const filteredLinksGrupos = useMemo(() => (
+    linksInteresGrupos
+      .map((g) => ({
+        ...g,
+        items: g.items.filter(
+          (it) => matchText(g.titulo) || matchText(g.badge) || matchText(it.nombre) || matchText(it.url),
+        ),
+      }))
+      .filter((g) => g.items.length > 0)
+  ), [linksInteresGrupos, q])
+
+  const showLinks = (activeTab === 'todos' || activeTab === 'links') && filteredLinksGrupos.length > 0
+
   const tabs = [
     { key: 'todos', label: 'Todos' },
     { key: 'paso1', label: '1. Apertura' },
@@ -237,6 +298,7 @@ Para darte una cifra exacta y no un aproximado genérico, cuéntame:
     { key: 'paso5', label: '5. Decisión' },
     { key: 'paso6', label: '6. Confirmación' },
     { key: 'objeciones', label: 'Objeciones (3)' },
+    { key: 'links', label: 'Links de interés (13)' },
   ]
 
   return (
@@ -967,8 +1029,106 @@ Para darte una cifra exacta y no un aproximado genérico, cuéntame:
             </section>
           )}
 
+          {/* SECCIÓN: LINKS DE INTERÉS (PLANOS, TOURS Y WEB) */}
+          {showLinks && (
+            <section className="space-y-4 rounded-xl p-4 bg-slate-50 dark:bg-[#131d30] border border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    style={{ backgroundColor: '#1F1D5C' }}
+                    className="w-6 h-6 rounded-lg text-white flex items-center justify-center shadow-xs"
+                  >
+                    <Link2 size={14} />
+                  </span>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Links de Interés para Consultar
+                  </h3>
+                </div>
+                <span className="text-[11px] font-semibold text-[#1F1D5C] dark:text-indigo-300 bg-[#1F1D5C]/10 dark:bg-[#1F1D5C]/30 px-2 py-0.5 rounded-full border border-[#1F1D5C]/30 dark:border-indigo-400/30">
+                  Planos · Tours · Web · Redes
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {filteredLinksGrupos.map((grupo) => (
+                  <div key={grupo.id} className="space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#1F1D5C] dark:text-indigo-300">
+                      {grupo.id === 'planos' ? (
+                        <Map size={13} />
+                      ) : grupo.id === 'tours' ? (
+                        <Video size={13} />
+                      ) : grupo.id === 'redes' ? (
+                        <Users size={13} />
+                      ) : (
+                        <Globe size={13} />
+                      )}
+                      <span>{grupo.titulo}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2">
+                      {grupo.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-2.5 rounded-lg bg-white dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:border-[#1F1D5C]/50 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                {item.nombre}
+                              </span>
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                {grupo.badge}
+                              </span>
+                            </div>
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block text-[11px] font-mono text-indigo-600 dark:text-indigo-400 hover:underline truncate mt-0.5"
+                              title={item.url}
+                            >
+                              {item.url}
+                            </a>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => copyText(item.id, item.url)}
+                              className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                              title="Copiar enlace"
+                            >
+                              {copiedKey === item.id ? (
+                                <Check size={12} className="text-emerald-500" />
+                              ) : (
+                                <Copy size={12} />
+                              )}
+                              <span>{copiedKey === item.id ? '¡Copiado!' : 'Copiar'}</span>
+                            </button>
+
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ backgroundColor: '#1F1D5C' }}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-md text-white hover:brightness-110 transition-all"
+                              title={`Abrir ${item.nombre}`}
+                            >
+                              <span>Abrir</span>
+                              <ExternalLink size={11} />
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* MENSAJE CUANDO NINGÚN RESULTADO COINCIDE */}
-          {!showPaso1 && !showPaso2 && !showPaso3 && !showPaso4 && !showPaso5 && !showPaso6 && !showObjeciones && (
+          {!showPaso1 && !showPaso2 && !showPaso3 && !showPaso4 && !showPaso5 && !showPaso6 && !showObjeciones && !showLinks && (
             <div className="text-center py-12 space-y-2 text-slate-400">
               <Search size={32} className="mx-auto text-slate-300 dark:text-slate-600" />
               <p className="text-sm font-medium">No se encontraron resultados para “{searchQuery}”</p>

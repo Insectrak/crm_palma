@@ -46,6 +46,7 @@ const BolsaReciclajeTMK = lazyWithReload(() => import('@/pages/BolsaReciclajeTMK
 const LeadsCampanas = lazyWithReload(() => import('@/pages/LeadsCampanas'))
 const PapeleraLeads = lazyWithReload(() => import('@/pages/PapeleraLeads'))
 const GestionLotes = lazyWithReload(() => import('@/pages/GestionLotes'))
+const EstrategiasExternas = lazyWithReload(() => import('@/pages/EstrategiasExternas'))
 
 /**
  * Ruta protegida: redirige al login si el usuario no está autenticado.
@@ -238,6 +239,15 @@ export default function App() {
                 }
               />
               <Route path="separaciones" element={<Navigate to="/gestion-lotes" replace />} />
+              {/* Estrategias Externas (efectividad de campañas fuera de redes sociales) */}
+              <Route
+                path="estrategias-externas"
+                element={
+                  <PermissionRoute permission="dashboards.view" legacyRoles={['admin', 'supervisor']}>
+                    <EstrategiasExternas />
+                  </PermissionRoute>
+                }
+              />
               {/* Bolsa de Reciclaje TMK */}
               <Route
                 path="reciclaje-tmk"

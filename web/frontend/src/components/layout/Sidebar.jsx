@@ -5,7 +5,7 @@ import {
   BarChart2, Phone, CalendarDays, Building2,
   PanelLeftClose, PanelLeftOpen,
   Shuffle, FileText, FileSpreadsheet, MessageCircle, Archive, Plug, Target, LayoutGrid, Activity,
-  RotateCcw, LayoutDashboard, Megaphone, Trash2, Sparkles, ShieldCheck,
+  RotateCcw, LayoutDashboard, Megaphone, Trash2, Sparkles, ShieldCheck, Compass,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import useAuthStore from '@/store/authStore'
@@ -47,6 +47,7 @@ const ALL_MENU_ITEMS = [
   { label: 'Dashboards', icon: LayoutGrid, path: '/dashboards', roles: ['admin', 'supervisor'], group: 'mgmt', permissionKey: 'dashboards.view' },
   { label: 'Metas', icon: Target, path: '/metas', roles: ['admin', 'supervisor'], group: 'mgmt', permissionKey: 'metas.view' },
   { label: 'Leads Campañas', icon: Megaphone, path: '/leads-campanas', roles: ['admin'], group: 'mgmt', permissionKey: null },
+  { label: 'Estrategias externas', icon: Compass, path: '/estrategias-externas', roles: ['admin', 'supervisor'], group: 'mgmt', permissionKey: 'dashboards.view' },
   { label: 'Reparto leads', icon: Shuffle, path: '/rotacion', roles: ['admin'], group: 'mgmt', permissionKey: 'rotacion.manage' },
   { label: 'Rendimiento de Ads', icon: Activity, path: '/rendimiento-ads', roles: ['admin', 'supervisor'], group: 'mgmt', permissionKey: 'dashboards.view' },
   { label: 'Integraciones', icon: Plug, path: '/integraciones', roles: ['admin'], group: 'mgmt', permissionKey: 'integraciones.manage' },
