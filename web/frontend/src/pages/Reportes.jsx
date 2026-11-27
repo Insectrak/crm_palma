@@ -1613,11 +1613,64 @@ export default function Reportes() {
               )}
 
               {/* Lista de Ranking */}
-              <div className="space-y-3">
-                {conActividad.slice(0, 30).map((r, i) => {
-                  const isTop3 = i < 3
-                  const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null
-                  const rowKey = isEquipoMode ? `eq-${r.supervisor_id}` : r.asesor_id
+              {(() => {
+                const METRICA_LABELS = {
+                  matriculas: 'Ventas',
+                  contactabilidad: 'Contactabilidad',
+                  conversion: '% Conversión',
+                  citas: 'Citas',
+                  llamadas: 'Llamadas',
+                }
+                const metricaLabel = METRICA_LABELS[rankingMetrica] || 'Ventas'
+
+                const getCitasVal = (row) => (
+                  row.total_citas != null && row.total_citas > 0
+                    ? row.total_citas
+                    : ((row.leads_calificados || 0) + (row.leads_en_negociacion || 0))
+                )
+
+                const peores5 = [...conActividad]
+                  .sort((a, b) => {
+                    if (rankingMetrica === 'contactabilidad') {
+                      return (
+                        (Number(a.tasa_contactabilidad_pct) || 0) - (Number(b.tasa_contactabilidad_pct) || 0)
+                        || (a.leads_contactados || 0) - (b.leads_contactados || 0)
+                        || (b.total_leads || 0) - (a.total_leads || 0)
+                      )
+                    }
+                    if (rankingMetrica === 'conversion') {
+                      return (
+                        (Number(a.tasa_conversion_pct) || 0) - (Number(b.tasa_conversion_pct) || 0)
+                        || (a.leads_ganados || 0) - (b.leads_ganados || 0)
+                        || (b.total_leads || 0) - (a.total_leads || 0)
+                      )
+                    }
+                    if (rankingMetrica === 'citas') {
+                      return (
+                        getCitasVal(a) - getCitasVal(b)
+                        || (a.citas_completadas || 0) - (b.citas_completadas || 0)
+                        || (b.total_leads || 0) - (a.total_leads || 0)
+                      )
+                    }
+                    if (rankingMetrica === 'llamadas') {
+                      return (
+                        (a.total_llamadas || 0) - (b.total_llamadas || 0)
+                        || (Number(a.pct_efectivas) || 0) - (Number(b.pct_efectivas) || 0)
+                        || (b.total_leads || 0) - (a.total_leads || 0)
+                      )
+                    }
+                    return (
+                      (a.leads_ganados || 0) - (b.leads_ganados || 0)
+                      || (Number(a.tasa_conversion_pct) || 0) - (Number(b.tasa_conversion_pct) || 0)
+                      || (b.total_leads || 0) - (a.total_leads || 0)
+                    )
+                  })
+                  .slice(0, 5)
+
+                const renderRankingCard = (r, i, isBottom = false) => {
+                  const isTop3 = !isBottom && i < 3
+                  const medal = !isBottom ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null) : null
+                  const rowKey = `${isBottom ? 'worst-' : ''}${isEquipoMode ? `eq-${r.supervisor_id}` : r.asesor_id}`
                   const nombre = isEquipoMode
                     ? `Equipo de ${r.supervisor_nombre || '—'}`
                     : r.nombre_completo
@@ -1626,23 +1679,30 @@ export default function Reportes() {
                     <div
                       key={rowKey}
                       className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${
-                        isTop3
-                          ? 'bg-gradient-to-r from-amber-50/60 via-white to-amber-50/30 border-amber-200 shadow-sm'
-                          : 'bg-white border-gray-100 hover:border-gray-200'
+                        isBottom
+                          ? 'bg-gradient-to-r from-rose-50/70 via-white to-rose-50/30 border-rose-200 shadow-xs'
+                          : isTop3
+                            ? 'bg-gradient-to-r from-amber-50/60 via-white to-amber-50/30 border-amber-200 shadow-sm'
+                            : 'bg-white border-gray-100 hover:border-gray-200'
                       }`}
                     >
                       {/* Posición / Medalla */}
                       <div
                         className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${
-                          isTop3 ? 'bg-amber-100 text-amber-700 shadow-inner' : 'bg-gray-100 text-gray-600'
+                          isBottom
+                            ? 'bg-rose-100 text-rose-700 shadow-inner text-sm'
+                            : isTop3
+                              ? 'bg-amber-100 text-amber-700 shadow-inner'
+                              : 'bg-gray-100 text-gray-600'
                         }`}
+                        title={isBottom && r.posicion ? `Posición general #${r.posicion}` : undefined}
                       >
-                        {medal || `#${r.posicion || i + 1}`}
+                        {isBottom ? `#${i + 1}` : (medal || `#${r.posicion || i + 1}`)}
                       </div>
 
                       {/* Avatar o Ícono de Equipo */}
                       {isEquipoMode ? (
-                        <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${isBottom ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
                           <Users size={22} />
                         </div>
                       ) : (
@@ -1651,10 +1711,15 @@ export default function Reportes() {
 
                       {/* Información Principal */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-gray-900 truncate text-base">
                             {nombre}
                           </p>
+                          {isBottom && r.posicion != null && (
+                            <span className="text-[10px] bg-rose-100 text-rose-700 border border-rose-200 px-1.5 py-0.5 rounded font-semibold">
+                              Pos. #{r.posicion}
+                            </span>
+                          )}
                           {!isEquipoMode && r.rol === 'supervisor' && (
                             <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded font-semibold">
                               SUPERVISOR
@@ -1739,7 +1804,7 @@ export default function Reportes() {
                       <div className="text-right flex-shrink-0 min-w-[120px]">
                         {rankingMetrica === 'contactabilidad' ? (
                           <div>
-                            <div className="text-2xl font-extrabold text-indigo-600">
+                            <div className={`text-2xl font-extrabold ${isBottom ? 'text-rose-600' : 'text-indigo-600'}`}>
                               {r.tasa_contactabilidad_pct || 0}%
                             </div>
                             <div className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">
@@ -1751,7 +1816,7 @@ export default function Reportes() {
                           </div>
                         ) : rankingMetrica === 'conversion' ? (
                           <div>
-                            <div className="text-2xl font-extrabold text-purple-600">
+                            <div className={`text-2xl font-extrabold ${isBottom ? 'text-rose-600' : 'text-purple-600'}`}>
                               {r.tasa_conversion_pct || 0}%
                             </div>
                             <div className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">
@@ -1763,10 +1828,8 @@ export default function Reportes() {
                           </div>
                         ) : rankingMetrica === 'citas' ? (
                           <div>
-                            <div className="text-2xl font-extrabold text-blue-600">
-                              {r.total_citas != null && r.total_citas > 0
-                                ? r.total_citas
-                                : ((r.leads_calificados || 0) + (r.leads_en_negociacion || 0))}
+                            <div className={`text-2xl font-extrabold ${isBottom ? 'text-rose-600' : 'text-blue-600'}`}>
+                              {getCitasVal(r)}
                             </div>
                             <div className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">
                               Citas Agendadas
@@ -1779,7 +1842,7 @@ export default function Reportes() {
                           </div>
                         ) : rankingMetrica === 'llamadas' ? (
                           <div>
-                            <div className="text-2xl font-extrabold text-amber-600">
+                            <div className={`text-2xl font-extrabold ${isBottom ? 'text-rose-600' : 'text-amber-600'}`}>
                               {r.total_llamadas || 0}
                             </div>
                             <div className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">
@@ -1791,7 +1854,7 @@ export default function Reportes() {
                           </div>
                         ) : (
                           <div>
-                            <div className="text-2xl font-extrabold text-emerald-600">
+                            <div className={`text-2xl font-extrabold ${isBottom ? 'text-rose-600' : 'text-emerald-600'}`}>
                               {r.leads_ganados || 0}
                             </div>
                             <div className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">
@@ -1805,8 +1868,38 @@ export default function Reportes() {
                       </div>
                     </div>
                   )
-                })}
-              </div>
+                }
+
+                return (
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      {conActividad.slice(0, 30).map((r, i) => renderRankingCard(r, i, false))}
+                    </div>
+
+                    {/* Peores 5 en la misma categoría */}
+                    {peores5.length > 0 && (
+                      <div className="pt-4 border-t border-rose-100 space-y-3">
+                        <div className="flex items-center justify-between gap-2 flex-wrap px-1">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                              Peores 5
+                            </span>
+                            <h3 className="text-sm font-bold text-gray-900">
+                              Menor desempeño en {metricaLabel}
+                            </h3>
+                          </div>
+                          <span className="text-[11px] text-gray-400">
+                            Ordenados de menor a mayor {metricaLabel.toLowerCase()} (entre {isEquipoMode ? 'equipos' : 'asesores'} con actividad)
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          {peores5.map((r, i) => renderRankingCard(r, i, true))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* Sin actividad en el período (asesores o equipos) */}
               {sinActividad.length > 0 && (
